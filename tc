@@ -50,7 +50,7 @@ initProject() {
     fi
 
     PROJECT_WORKSPACE="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'workspace' )"
-    PROJECT_TFVAR="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfvar' )"
+    PROJECT_TFVAR="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfvars' )"
 
     TF_PLAN_FILE="${PROJECT_DIR}/${TF_PLAN_FILENAME}"
 
@@ -338,31 +338,31 @@ case "${ACTION}" in
         runTerraform fmt --check=true -recursive -diff
         runTerraform validate
 
-        # TF tfvar
+        # TF tfvars
         echo -e "${YC} >>> Searching for ${RC}tfvar${YC} file ... ${NC}"
         if [ -z "${PROJECT_TFVAR}" ]; then
-            # no pre-configured tfvar
-            echo -e "${YC} >>> No TFVAR filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVAR name${NC}"
+            # no pre-configured tfvars
+            echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
             TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${CURRENT_WORKSPACE}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}.tfvars"
         elif [ "${PROJECT_TFVAR}" = '-' ]; then    
-            # pre-configured to skip tfvar
-            echo -e "${YC} >>> Skipping TFVAR because '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
+            # pre-configured to skip tfvars
+            echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
             TFVARS_FILENAME="-"
             TFVARS_COMMAND_PARAM=""
         else
-            # pre-configured tfvar
-            echo -e "${YC} >>> TFVAR filename '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
+            # pre-configured tfvars
+            echo -e "${YC} >>> TFVARS filename '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
             TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${PROJECT_TFVAR}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}.tfvars"
         fi
 
         # TF plan
         echo -e "\n------------------------------------------------------------------------\n"
-        echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvar ${RC}${TFVARS_FILENAME}${NC}"
+        echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
         runTerraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
-        echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvar ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
+        echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
     # TODO re-use plan action
@@ -373,31 +373,31 @@ case "${ACTION}" in
         # TF workspaces
         selectWorkspace
 
-        # TF tfvar
+        # TF tfvars
         echo -e "${YC} >>> Searching for ${RC}tfvar${YC} file ... ${NC}"
         if [ -z "${PROJECT_TFVAR}" ]; then
-            # no pre-configured tfvar
-            echo -e "${YC} >>> No TFVAR filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVAR name${NC}"
+            # no pre-configured tfvars
+            echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
             TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${CURRENT_WORKSPACE}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}.tfvars"
         elif [ "${PROJECT_TFVAR}" = '-' ]; then
-            # pre-configured to skip tfvar
-            echo -e "${YC} >>> Skipping TFVAR because '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
+            # pre-configured to skip tfvars
+            echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
             TFVARS_FILENAME="-"
             TFVARS_COMMAND_PARAM=""
         else
-            # pre-configured tfvar
-            echo -e "${YC} >>> TFVAR filename '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
+            # pre-configured tfvars
+            echo -e "${YC} >>> TFVARS filename '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
             TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${PROJECT_TFVAR}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}.tfvars"
         fi
 
         # TF plan
         echo -e "\n------------------------------------------------------------------------\n"
-        echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvar ${RC}${TFVARS_FILENAME}${NC}"
+        echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
         runTerraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
-        echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvar ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
+        echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
     'apply')
