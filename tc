@@ -339,7 +339,7 @@ case "${ACTION}" in
         runTerraform validate
 
         # TF tfvars
-        echo -e "${YC} >>> Searching for ${RC}tfvar${YC} file ... ${NC}"
+        echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}"
         if [ -z "${PROJECT_TFVAR}" ]; then
             # no pre-configured tfvars
             echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
@@ -374,7 +374,7 @@ case "${ACTION}" in
         selectWorkspace
 
         # TF tfvars
-        echo -e "${YC} >>> Searching for ${RC}tfvar${YC} file ... ${NC}"
+        echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}"
         if [ -z "${PROJECT_TFVAR}" ]; then
             # no pre-configured tfvars
             echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
