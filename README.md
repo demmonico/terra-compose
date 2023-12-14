@@ -75,7 +75,7 @@ aliases:
   alias_name:                           # [allowed only A-Za-z0-9_ symbols, SHOULD BE UNIQUE]
     path: "path/to/project/base/dir"    # [required]
     workspace: "live"                   # [optional, "default" will be used if exists and no more choice OR ask]
-    tfvars: "nonprod"                    # [optional, workspace name will be used if skip OR ask, could be "-" for skipping tfvars attaching]
+    tfvars: "nonprod"                   # [optional, workspace name will be used if skip OR ask, could be "-" for skipping tfvars attaching]
     tfversion: "x.x.x"                  # [optional, from the default section will be used if omitted]
 ```
 
@@ -93,7 +93,7 @@ You can find full demo following [terra-compose-demo repo](https://github.com/de
 #     alias_name:                           [allowed only A-Za-z0-9_ symbols]
 #       path: "path/to/project/base/dir"'   [required]
 #       workspace: "live"                   [optional, "default" will be used if exists and no more choice OR ask]
-#       tfvars: "nonprod"                    [optional, workspace name will be used if skip OR ask]
+#       tfvars: "nonprod"                   [optional, workspace name will be used if skip OR ask]
 #       tfversion: "x.x.x"                  [optional, from the default section will be used if omitted]
 
 default:

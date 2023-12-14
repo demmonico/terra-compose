@@ -58,6 +58,8 @@ initProject() {
     local TF_PROJECT_VERSION="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfversion' )"
     TF_VERSION="${TF_PROJECT_VERSION:-${TF_DEFAULT_VERSION}}"
 
+    PROJECT_BACKEND_CONFIG="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'backend_config' )"
+
     # env vars file
     ENV_VARS_FILE_DOCKER_PARAM=''
     if [ -f .env ]; then
@@ -114,10 +116,11 @@ runTerraformInteractive() {
 }
 
 runTerraformInit() {
+    local backend_config="${PROJECT_BACKEND_CONFIG:+"-backend-config=\"${PROJECT_BACKEND_CONFIG}\""}"
     cd "${PROJECT_DIR}" && \
         echo -e "Project dir is ${YC}${PROJECT_DIR}${NC} and we are currently right here!" && echo "" && \
-        echo -e "${YC} >>> Running TF init ...${NC}" && \
-        runTerraform init
+        echo -e "${YC} >>> Running TF init${PROJECT_BACKEND_CONFIG:+" using '${backend_config}'"} ...${NC}" && \
+        runTerraform init ${backend_config}
 }
 
 askWorkspace() {
@@ -157,16 +160,27 @@ selectWorkspace() {
     runTerraform workspace select ${CURRENT_WORKSPACE}
 }
 
-askIfNotExistsTfVarsFile() {
+normalizeTfVarsFilename() {
     local FILENAME=$1
-    if [ -f "${PROJECT_DIR}/${FILENAME}.tfvars" ]; then
+    if [[ "${FILENAME}" = *.tfvars ]]; then
         echo "${FILENAME}"
     else
-        echo -e "Oops, file ${RC}${FILENAME}.tfvars${NC} was not found at ${YC}${PROJECT_DIR}${NC} folder!" >&2
+        echo "${FILENAME}.tfvars"
+    fi
+}
+
+askIfNotExistsTfVarsFile() {
+    local FILENAME="$( normalizeTfVarsFilename "$1" )"
+    local FILE="${PROJECT_DIR}/${FILENAME}"
+
+    if [ -f "${FILE}" ]; then
+        echo "${FILENAME}"
+    else
+        echo -e "Oops, file ${RC}${FILENAME}${NC} was not found at ${YC}${PROJECT_DIR}${NC} folder!" >&2
         echo -e "There are ${YC}*.tfvars${NC} files:" >&2
         eval "ls ${PROJECT_DIR} | grep --color '.tfvars'" >&2
 
-        read -p "Please input filename (without .tfvars extension) which one you you want to work with: " FILENAME
+        read -p "Please input filename (with or without .tfvars extension) which one you want to work with: " FILENAME
         echo "$( askIfNotExistsTfVarsFile "${FILENAME}" )"
     fi
 }
@@ -344,7 +358,7 @@ case "${ACTION}" in
             # no pre-configured tfvars
             echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
             TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${CURRENT_WORKSPACE}" )"
-            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}.tfvars"
+            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
         elif [ "${PROJECT_TFVAR}" = '-' ]; then    
             # pre-configured to skip tfvars
             echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
@@ -354,7 +368,7 @@ case "${ACTION}" in
             # pre-configured tfvars
             echo -e "${YC} >>> TFVARS filename '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
             TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${PROJECT_TFVAR}" )"
-            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}.tfvars"
+            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
         fi
 
         # TF plan
@@ -379,7 +393,7 @@ case "${ACTION}" in
             # no pre-configured tfvars
             echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
             TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${CURRENT_WORKSPACE}" )"
-            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}.tfvars"
+            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
         elif [ "${PROJECT_TFVAR}" = '-' ]; then
             # pre-configured to skip tfvars
             echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
@@ -389,7 +403,7 @@ case "${ACTION}" in
             # pre-configured tfvars
             echo -e "${YC} >>> TFVARS filename '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
             TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${PROJECT_TFVAR}" )"
-            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}.tfvars"
+            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
         fi
 
         # TF plan
