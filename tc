@@ -60,6 +60,11 @@ initProject() {
 
     PROJECT_BACKEND_CONFIG="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'backend_config' )"
 
+    PROJECT_HOOK_BEFORE_TF_INIT="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' 'before_tf_init' )"
+    PROJECT_HOOK_AFTER_TF_INIT="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' 'after_tf_init' )"
+    PROJECT_HOOK_BEFORE_ACTION="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' 'before_action' )"
+    PROJECT_HOOK_AFTER_ACTION="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' 'after_action' )"
+
     # env vars file
     ENV_VARS_FILE_DOCKER_PARAM=''
     if [ -f .env ]; then
@@ -116,11 +121,23 @@ runTerraformInteractive() {
 }
 
 runTerraformInit() {
+    if [ -n "${PROJECT_HOOK_BEFORE_TF_INIT}" ]; then
+        echo -e "${YC} >>> Running hook before init ... ${NC}"
+        bash -c "${PROJECT_HOOK_BEFORE_TF_INIT}"
+        echo -e "${YC} >>> Done ${NC}"
+    fi
+
     local backend_config="${PROJECT_BACKEND_CONFIG:+"-backend-config=\"${PROJECT_BACKEND_CONFIG}\""}"
     cd "${PROJECT_DIR}" && \
         echo -e "Project dir is ${YC}${PROJECT_DIR}${NC} and we are currently right here!" && echo "" && \
         echo -e "${YC} >>> Running TF init${PROJECT_BACKEND_CONFIG:+" using '${backend_config}'"} ...${NC}" && \
         runTerraform init ${backend_config}
+
+    if [ -n "${PROJECT_HOOK_AFTER_TF_INIT}" ]; then
+        echo -e "${YC} >>> Running hook after init ... ${NC}"
+        bash -c "${PROJECT_HOOK_AFTER_TF_INIT}"
+        echo -e "${YC} >>> Done ${NC}"
+    fi
 }
 
 askWorkspace() {
@@ -305,6 +322,12 @@ if [ -z "${AWS_PROFILE}" ]; then
     exit 5
 fi
 
+if [ -n "${PROJECT_HOOK_BEFORE_ACTION}" ]; then
+    echo -e "${YC} >>> Running hook before action ... ${NC}"
+    bash -c "${PROJECT_HOOK_BEFORE_ACTION}"
+    echo -e "${YC} >>> Done ${NC}"
+fi
+
 # TF action
 case "${ACTION}" in
     # TODO rethink
@@ -482,3 +505,9 @@ case "${ACTION}" in
         echo -e "${RC}Error:${NC} ooops, catch all for invalid action ${ACTION}"
         exit 1;;
 esac
+
+if [ -n "${PROJECT_HOOK_AFTER_ACTION}" ]; then
+    echo -e "${YC} >>> Running hook after action ... ${NC}"
+    bash -c "${PROJECT_HOOK_AFTER_ACTION}"
+    echo -e "${YC} >>> Done ${NC}"
+fi
