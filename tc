@@ -179,7 +179,7 @@ selectWorkspace() {
 
 normalizeTfVarsFilename() {
     local FILENAME=$1
-    if [[ "${FILENAME}" = *.tfvars ]]; then
+    if [[ "${FILENAME}" = *.tfvars ]] || [[ "${FILENAME}" = *.tfvars.json ]] || [[ "${FILENAME}" = *.tfvars.hcl ]]; then
         echo "${FILENAME}"
     else
         echo "${FILENAME}.tfvars"

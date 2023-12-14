@@ -30,7 +30,7 @@ See [versions section](#versions) that clarifies version specifics.
 
 #### Download for MacOS
 
-Tested on `Monterey` + `zsh`:
+Tested on `Monterey`/`Sonoma` + `zsh`:
 
 ```shell
 $ wget https://raw.githubusercontent.com/demmonico/terra-compose/master/tc \
@@ -77,6 +77,11 @@ aliases:
     workspace: "live"                   # [optional, "default" will be used if exists and no more choice OR ask]
     tfvars: "nonprod"                   # [optional, workspace name will be used if skip OR ask, could be "-" for skipping tfvars attaching]
     tfversion: "x.x.x"                  # [optional, from the default section will be used if omitted]
+    hooks:                              # [optional, scripts or commands to run before/after TF init or action in any combination]
+      before_tf_init: "run any bash script or command"
+      after_tf_init:  "run any bash script or command"
+      before_action:  "run any bash script or command"
+      after_action:   "run any bash script or command"
 ```
 
 ### Example
@@ -95,6 +100,11 @@ You can find full demo following [terra-compose-demo repo](https://github.com/de
 #       workspace: "live"                   [optional, "default" will be used if exists and no more choice OR ask]
 #       tfvars: "nonprod"                   [optional, workspace name will be used if skip OR ask]
 #       tfversion: "x.x.x"                  [optional, from the default section will be used if omitted]
+#       hooks:                              [optional, scripts or commands to run before/after TF init or action in any combination]
+#         before_tf_init: "run any bash script or command"
+#         after_tf_init:  "run any bash script or command"
+#         before_action:  "run any bash script or command"
+#         after_action:   "run any bash script or command"
 
 default:
   tfversion: "0.12.0"

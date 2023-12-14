@@ -5,7 +5,8 @@
 
 ### v1.1
 - added init option for [backend config](https://developer.hashicorp.com/terraform/language/settings/backends/configuration#partial-configuration)
-- added option to pass `tfvars` file name with or without file extension
+- added option to pass `tfvars` file name with or without file extension (also supports `.tfvars.json` and `.tfvars.hcl`)
+- added before/after TF init and before/after action hooks
 
 
 # TODOs
