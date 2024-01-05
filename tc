@@ -317,8 +317,9 @@ initProject
 #-----------------------------------------------------------#
 
 # check AWS access
+AWS_PROFILE="${AWS_PROFILE:-"${AWS_DEFAULT_PROFILE}"}"
 if [ -z "${AWS_PROFILE}" ]; then
-    echo -e "${RC}Error${NC}: env var AWS_PROFILE is empty. It seems that you have to get AWS creds (run your local ${YC}aws-*${NC} aliases)"
+    echo -e "${RC}Error${NC}: env var AWS_PROFILE/AWS_DEFAULT_PROFILE is empty. It's required to have one of them, pointing to the actual AWS profile (`~/.aws/credentials`)"
     exit 5
 fi
 

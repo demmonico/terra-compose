@@ -15,18 +15,18 @@ To install package please follow the steps:
 #### OS environment
 
 Was tested in the following OS environment:
-- `MacOS Monterey` + `zsh`
+- `MacOS Monterey / Sonoma` + `zsh`
 
-**Note**: it wasn't tested for other OS. Feel free to create a MR to add installation details for other environments. 
+**Note**: it wasn't tested in other OS. Feel free to create a MR to add installation details for other environments. 
 
 #### Terraform versions
 
-Was tested in Terraform versions `>= 0.14`, but `< 1.5.1`.
+Was tested in Terraform versions `>= 0.14`, but `<= 1.5.5`.
 **Is NOT compatible** with Terraform versions `< 0.14` due to the breaking changes in Terraform CLI arguments
 
 ### Download
 
-See [versions section](#versions) that clarifies version specifics.
+See [Versions section](#versions) that clarifies version specifics.
 
 #### Download for MacOS
 
@@ -35,7 +35,7 @@ Tested on `Monterey`/`Sonoma` + `zsh`:
 ```shell
 $ wget https://raw.githubusercontent.com/demmonico/terra-compose/master/tc \
   && chmod +x tc \
-  && ln -s ${PWD}/tc /usr/local/bin/tc
+  && sudo ln -s ${PWD}/tc /usr/local/bin/tc
 ```
 
 ### AWS credentials setup
@@ -46,7 +46,7 @@ $ wget https://raw.githubusercontent.com/demmonico/terra-compose/master/tc \
   $ aws configure --profile <YOUR_AWS_PROFILE_NAME>
   ```
   Follow all configuration steps, including filling out default region
-- export the selected AWS profile in your current shell
+- export the selected AWS profile in your current shell (works with both `AWS_DEFAULT_PROFILE` and `AWS_PROFILE`)
   ```shell
   $ export AWS_PROFILE=<YOUR_AWS_PROFILE_NAME>
   ```

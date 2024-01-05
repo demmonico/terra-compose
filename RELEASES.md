@@ -8,6 +8,9 @@
 - added option to pass `tfvars` file name with or without file extension (also supports `.tfvars.json` and `.tfvars.hcl`)
 - added before/after TF init and before/after action hooks
 
+### v1.2
+- added support for `AWS_DEFAULT_PROFILE` env var as a default value for `AWS_PROFILE`
+
 
 # TODOs
 
@@ -15,7 +18,7 @@
 - FIX `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace
 
 ## Features
-- ADD handling AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY env vars within the AWS_PROFILE
+- ADD handling AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY env vars within the AWS_PROFILE/AWS_DEFAULT_PROFILE
 - ADD consuming params from the command arguments - `terraform apply -var current=v2`
 - ADD script that replaces env vars with placeholders inside code (to be used as dynamic module sourcing for example, e.g. `module-prep`)
 - ADD applying not based on prepared plan, but on-the-fly as well
