@@ -11,11 +11,13 @@
 ### v1.2
 - added support for `AWS_DEFAULT_PROFILE` env var as a default value for `AWS_PROFILE`
 
+### v1.3-rc
+- refactored run Terraform in container functions
+- renamed host-based hooks; added container-based hook `before_container_run`
 
 # TODOs
 
 ## Bugfixes
-- FIX hooks that are not executed in container
 - FIX `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace
 
 ## Features

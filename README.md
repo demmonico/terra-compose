@@ -78,10 +78,11 @@ aliases:
     tfvars: "nonprod"                   # [optional, workspace name will be used if skip OR ask, could be "-" for skipping tfvars attaching]
     tfversion: "x.x.x"                  # [optional, from the default section will be used if omitted]
     hooks:                              # [optional, scripts or commands to run before/after TF init or action in any combination]
-      before_tf_init: "run any bash script or command"
-      after_tf_init:  "run any bash script or command"
-      before_action:  "run any bash script or command"
-      after_action:   "run any bash script or command"
+      before_tf_init:       "run any bash script or command on host"
+      after_tf_init:        "run any bash script or command on host"
+      before_all:           "run any bash script or command on host"
+      after_all:            "run any bash script or command on host"
+      before_container_run: "run any bash script or command in container"
 ```
 
 ### Example
@@ -89,23 +90,6 @@ aliases:
 You can find full demo following [terra-compose-demo repo](https://github.com/demmonico/terra-compose-demo) or check out next example:
 
 ```yaml
-# Terra Compose config
-# 
-# FORMAT:
-#   default:                                [optional, used as a default across the aliases]
-#     tfversion: "x.x.x"                    [optional, but if alias also does not have this section, an error will be thrown]
-#   aliases:
-#     alias_name:                           [allowed only A-Za-z0-9_ symbols]
-#       path: "path/to/project/base/dir"'   [required]
-#       workspace: "live"                   [optional, "default" will be used if exists and no more choice OR ask]
-#       tfvars: "nonprod"                   [optional, workspace name will be used if skip OR ask]
-#       tfversion: "x.x.x"                  [optional, from the default section will be used if omitted]
-#       hooks:                              [optional, scripts or commands to run before/after TF init or action in any combination]
-#         before_tf_init: "run any bash script or command"
-#         after_tf_init:  "run any bash script or command"
-#         before_action:  "run any bash script or command"
-#         after_action:   "run any bash script or command"
-
 default:
   tfversion: "0.12.0"
 

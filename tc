@@ -58,6 +58,13 @@ initProject() {
         exit 2
     fi
 
+    # check AWS access
+    AWS_PROFILE="${AWS_PROFILE:-"${AWS_DEFAULT_PROFILE}"}"
+    if [ -z "${AWS_PROFILE}" ]; then
+        echo -e "${RC}Error${NC}: env var AWS_PROFILE/AWS_DEFAULT_PROFILE is empty. It's required to have one of them, pointing to the actual AWS profile (`~/.aws/credentials`)"
+        exit 5
+    fi
+
     PROJECT_WORKSPACE="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'workspace' )"
     PROJECT_TFVAR="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfvars' )"
 
@@ -69,15 +76,28 @@ initProject() {
 
     PROJECT_BACKEND_CONFIG="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'backend_config' )"
 
-    PROJECT_HOOK_BEFORE_TF_INIT="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' 'before_tf_init' )"
-    PROJECT_HOOK_AFTER_TF_INIT="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' 'after_tf_init' )"
-    PROJECT_HOOK_BEFORE_ACTION="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' 'before_action' )"
-    PROJECT_HOOK_AFTER_ACTION="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' 'after_action' )"
-
     # env vars file
     ENV_VARS_FILE_DOCKER_PARAM=''
     if [ -f .env ]; then
       ENV_VARS_FILE_DOCKER_PARAM="--env-file ${BASE_DIR}/.env"
+    fi
+}
+
+runHostHook() {
+    local HOOK_NAME=$1
+    local HOOK_COMMAND="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${HOOK_NAME}" )"
+    if [ -n "${HOOK_COMMAND}" ]; then
+        echo -e "${YC} >>> Running host hook ${RC}${HOOK_NAME}${YC} ... ${NC}"
+        bash -c "${HOOK_COMMAND}"
+        echo -e "${YC} >>> Done ${NC}"
+    fi
+}
+
+prepareContainerHook() {
+    local HOOK_NAME=$1
+    local HOOK_COMMAND="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${HOOK_NAME}" )"
+    if [ -n "${HOOK_COMMAND}" ]; then
+        echo "${HOOK_COMMAND} && "
     fi
 }
 
@@ -102,7 +122,7 @@ runTerraform() {
         -w=${PROJECT_DIR} \
         --entrypoint /bin/sh \
         hashicorp/terraform:${TF_VERSION} \
-        ${cmd:+-c} ${cmd:+"${cmd}"}
+        ${cmd:+-c} ${cmd:+"$( prepareContainerHook 'before_container_run' )${cmd}"}
 
     { if is_debug_verbose_mode; then
         set +x;
@@ -112,11 +132,7 @@ runTerraform() {
 }
 
 runTerraformInit() {
-    if [ -n "${PROJECT_HOOK_BEFORE_TF_INIT}" ]; then
-        echo -e "${YC} >>> Running hook before init ... ${NC}"
-        bash -c "${PROJECT_HOOK_BEFORE_TF_INIT}"
-        echo -e "${YC} >>> Done ${NC}"
-    fi
+    runHostHook 'before_tf_init'
 
     local backend_config="${PROJECT_BACKEND_CONFIG:+"-backend-config=\"${PROJECT_BACKEND_CONFIG}\""}"
     cd "${PROJECT_DIR}" && \
@@ -124,11 +140,7 @@ runTerraformInit() {
         echo -e "${YC} >>> Running TF init${PROJECT_BACKEND_CONFIG:+" using '${backend_config}'"} ...${NC}" && \
         runTerraform terraform init ${backend_config}
 
-    if [ -n "${PROJECT_HOOK_AFTER_TF_INIT}" ]; then
-        echo -e "${YC} >>> Running hook after init ... ${NC}"
-        bash -c "${PROJECT_HOOK_AFTER_TF_INIT}"
-        echo -e "${YC} >>> Done ${NC}"
-    fi
+    runHostHook 'after_tf_init'
 }
 
 askWorkspace() {
@@ -307,18 +319,7 @@ initProject
 ##### Main
 #-----------------------------------------------------------#
 
-# check AWS access
-AWS_PROFILE="${AWS_PROFILE:-"${AWS_DEFAULT_PROFILE}"}"
-if [ -z "${AWS_PROFILE}" ]; then
-    echo -e "${RC}Error${NC}: env var AWS_PROFILE/AWS_DEFAULT_PROFILE is empty. It's required to have one of them, pointing to the actual AWS profile (`~/.aws/credentials`)"
-    exit 5
-fi
-
-if [ -n "${PROJECT_HOOK_BEFORE_ACTION}" ]; then
-    echo -e "${YC} >>> Running hook before action ... ${NC}"
-    bash -c "${PROJECT_HOOK_BEFORE_ACTION}"
-    echo -e "${YC} >>> Done ${NC}"
-fi
+runHostHook 'before_all'
 
 # TF action
 case "${ACTION}" in
@@ -496,8 +497,4 @@ case "${ACTION}" in
         exit 1;;
 esac
 
-if [ -n "${PROJECT_HOOK_AFTER_ACTION}" ]; then
-    echo -e "${YC} >>> Running hook after action ... ${NC}"
-    bash -c "${PROJECT_HOOK_AFTER_ACTION}"
-    echo -e "${YC} >>> Done ${NC}"
-fi
+runHostHook 'after_all'
