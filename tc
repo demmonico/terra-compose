@@ -30,12 +30,21 @@ RC='\033[0;31m'
 YC='\033[0;33m'
 NC='\033[0m' # No Color
 
+VERBOSE_DEBUG_MODE=0
+VERBOSE_INFO_MODE=1
+VERBOSE_ERROR_MODE=2
+VERBOSE_MODE="${VERBOSE_INFO_MODE}" # default
+
 _DIR="$(pwd)"
 BASE_DIR="${_DIR}"
 CONFIG_YAML_FILE="${_DIR}/aliases.yaml"
 TF_PLAN_FILENAME='plan.tfplan'
 
 HELP_STRING="${HELP_STRING}$( echo -e "\n\nList of available aliases from ${YC}${CONFIG_YAML_FILE}${NC}:\n>>>>>"; cat ${CONFIG_YAML_FILE} | grep -v -E "^$|^\s*\#"; echo "<<<<<" )"
+
+is_debug_verbose_mode() {
+    [[ "${VERBOSE_MODE}" -le "${VERBOSE_DEBUG_MODE}" ]]
+}
 
 initProject() {
     local PROJECT_SUBPATH="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'path' )"
@@ -73,51 +82,33 @@ initProject() {
 }
 
 runTerraform() {
-    local TF_ARGS=$@
-    if [ -z "${PROJECT_DIR}" ]; then
-        echo -e "${RC}Error${NC}: empty project DIR while running ${YC}runTerraform${NC}"
-        exit 1
+    local cmd=$@
+
+    if is_debug_verbose_mode; then
+        echo -e "${YC} >>> Command: ${RC}"
+        # prevent to expand the color on the subshell when spinning up the interactive shell
+        if [ -z "${args}" ]; then
+            echo -n -e "${NC}"
+        fi
+        set -x
     fi
 
-    echo -e "${YC} >>> Command: ${RC}docker run -ti --entrypoint '' -v \"${BASE_DIR}\":\"${BASE_DIR}\" -v ~/.aws:/root/.aws -v ~/.ssh:/root/.ssh -e AWS_PROFILE=${AWS_PROFILE} ${ENV_VARS_FILE_DOCKER_PARAM} -w=${PROJECT_DIR} hashicorp/terraform:${TF_VERSION} /bin/sh -c \"terraform ${TF_ARGS}\"${NC}"
-
-    runTerraformInternal ${TF_ARGS}
-}
-
-runTerraformInternal() {
-    local TF_ARGS=$@
-
     docker run --rm -ti \
-        --entrypoint '' \
         -v "${BASE_DIR}":"${BASE_DIR}" \
         -v ~/.aws:/root/.aws \
         -v ~/.ssh:/root/.ssh \
         -e AWS_PROFILE=${AWS_PROFILE} \
         ${ENV_VARS_FILE_DOCKER_PARAM} \
         -w=${PROJECT_DIR} \
+        --entrypoint /bin/sh \
         hashicorp/terraform:${TF_VERSION} \
-        /bin/sh -c "terraform ${TF_ARGS}"
-}
+        ${cmd:+-c} ${cmd:+"${cmd}"}
 
-# TODO reuse existing code
-runTerraformInteractive() {
-    if [ -z "${PROJECT_DIR}" ]; then
-        echo -e "${RC}Error${NC}: empty project DIR while running ${YC}runTerraform${NC}"
-        exit 1
-    fi
+    { if is_debug_verbose_mode; then
+        set +x;
+        echo -e "${NC}"
+    fi } 2>/dev/null
 
-    echo -e "${YC} >>> Command: ${RC}docker run -ti --entrypoint '' -v \"${BASE_DIR}\":\"${BASE_DIR}\" -v ~/.aws:/root/.aws -v ~/.ssh:/root/.ssh -e AWS_PROFILE=${AWS_PROFILE} ${ENV_VARS_FILE_DOCKER_PARAM} -w=${PROJECT_DIR} hashicorp/terraform:${TF_VERSION} /bin/sh${NC}"
-
-    docker run --rm -ti \
-        --entrypoint '' \
-        -v "${BASE_DIR}":"${BASE_DIR}" \
-        -v ~/.aws:/root/.aws \
-        -v ~/.ssh:/root/.ssh \
-        -e AWS_PROFILE=${AWS_PROFILE} \
-        ${ENV_VARS_FILE_DOCKER_PARAM} \
-        -w=${PROJECT_DIR} \
-        hashicorp/terraform:${TF_VERSION} \
-        /bin/sh
 }
 
 runTerraformInit() {
@@ -131,7 +122,7 @@ runTerraformInit() {
     cd "${PROJECT_DIR}" && \
         echo -e "Project dir is ${YC}${PROJECT_DIR}${NC} and we are currently right here!" && echo "" && \
         echo -e "${YC} >>> Running TF init${PROJECT_BACKEND_CONFIG:+" using '${backend_config}'"} ...${NC}" && \
-        runTerraform init ${backend_config}
+        runTerraform terraform init ${backend_config}
 
     if [ -n "${PROJECT_HOOK_AFTER_TF_INIT}" ]; then
         echo -e "${YC} >>> Running hook after init ... ${NC}"
@@ -149,7 +140,7 @@ askWorkspace() {
 }
 
 listWorkspaces() {
-    runTerraformInternal workspace list
+    runTerraform terraform workspace list
 }
 
 printListWorkspaces() {
@@ -174,7 +165,7 @@ selectWorkspace() {
     fi
 
     echo -e "${YC} >>> Selecting TF workspace ${RC}${CURRENT_WORKSPACE}${YC} ... ${NC}"
-    runTerraform workspace select ${CURRENT_WORKSPACE}
+    runTerraform terraform workspace select ${CURRENT_WORKSPACE}
 }
 
 normalizeTfVarsFilename() {
@@ -331,7 +322,6 @@ fi
 
 # TF action
 case "${ACTION}" in
-    # TODO rethink
     # use the latest workspace
     'run')
         echo -e "${YC} >>> Running custom command ${RC}terraform ${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJECT_DIR})${NC}."
@@ -345,7 +335,6 @@ case "${ACTION}" in
         runTerraform ${@:3}
         exit;;
 
-    # TODO rethink
     # use the latest workspace
     'shell')
         echo -e "${YC} >>> Shelling into the ${RC}terraform ${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJECT_DIR})${NC}."
@@ -356,7 +345,7 @@ case "${ACTION}" in
             exit 0
         fi
 
-        runTerraformInteractive ${@:3}
+        runTerraform
         exit;;
 
     'workspaces')
@@ -373,8 +362,8 @@ case "${ACTION}" in
 
         # TF validation
         echo -e "${YC} >>> Checking format and validating TF templates ... ${NC}"
-        runTerraform fmt --check=true -recursive -diff
-        runTerraform validate
+        runTerraform terraform fmt --check=true -recursive -diff
+        runTerraform terraform validate
 
         # TF tfvars
         echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}"
@@ -399,7 +388,7 @@ case "${ACTION}" in
         echo -e "\n------------------------------------------------------------------------\n"
         echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
-        runTerraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
+        runTerraform terraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
         echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
@@ -434,7 +423,7 @@ case "${ACTION}" in
         echo -e "\n------------------------------------------------------------------------\n"
         echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
-        runTerraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
+        runTerraform terraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
         echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
@@ -462,7 +451,7 @@ case "${ACTION}" in
             exit 0
         fi
 
-        runTerraform apply ${TF_PLAN_FILENAME}
+        runTerraform terraform apply ${TF_PLAN_FILENAME}
         rm ${TF_PLAN_FILE}
 
         echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"
@@ -495,7 +484,7 @@ case "${ACTION}" in
             exit 0
         fi
 
-        runTerraform apply ${TF_PLAN_FILENAME}
+        runTerraform terraform apply ${TF_PLAN_FILENAME}
         rm ${TF_PLAN_FILE}
 
         echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"

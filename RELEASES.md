@@ -15,6 +15,7 @@
 # TODOs
 
 ## Bugfixes
+- FIX hooks that are not executed in container
 - FIX `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace
 
 ## Features
@@ -24,3 +25,7 @@
 - ADD applying not based on prepared plan, but on-the-fly as well
 - ADD configuring workspace during the call. Maybe withing split alias onto project and env - `./tc run runner_STG destroy -var-file=nonprod.tfvars -target=module.privileged_gitlab_runner_cluster`
 - ADD option to run `run` (or any??) command without ANY output. It's handy for capture output of some native TF commands, like `state`, `graph` etc
+- ADD tc log
+- ADD customisation for env and aliases files
+- implement verbosity cmd flags
+- reformat code to follow conventions
