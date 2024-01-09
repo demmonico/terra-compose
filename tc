@@ -46,8 +46,8 @@ is_debug_verbose_mode() {
     [[ "${VERBOSE_MODE}" -le "${VERBOSE_DEBUG_MODE}" ]]
 }
 
-initProject() {
-    local PROJECT_SUBPATH="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'path' )"
+init() {
+    local PROJECT_SUBPATH="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'path' )"
     if [ -z "${PROJECT_SUBPATH}" ]; then
         echo -e "${RC}Error${NC}: no path was found for alias ${YC}${ALIAS}${NC}"
         exit 2
@@ -65,16 +65,16 @@ initProject() {
         exit 5
     fi
 
-    PROJECT_WORKSPACE="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'workspace' )"
-    PROJECT_TFVAR="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfvars' )"
+    PROJECT_WORKSPACE="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'workspace' )"
+    PROJECT_TFVAR="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfvars' )"
 
     TF_PLAN_FILE="${PROJECT_DIR}/${TF_PLAN_FILENAME}"
 
-    local TF_DEFAULT_VERSION="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'default' 'tfversion' )"
-    local TF_PROJECT_VERSION="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfversion' )"
+    local TF_DEFAULT_VERSION="$( get_yaml_value ${CONFIG_YAML_FILE} 'default' 'tfversion' )"
+    local TF_PROJECT_VERSION="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfversion' )"
     TF_VERSION="${TF_PROJECT_VERSION:-${TF_DEFAULT_VERSION}}"
 
-    PROJECT_BACKEND_CONFIG="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'backend_config' )"
+    PROJECT_BACKEND_CONFIG="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'backend_config' )"
 
     # env vars file
     ENV_VARS_FILE_DOCKER_PARAM=''
@@ -83,9 +83,9 @@ initProject() {
     fi
 }
 
-runHostHook() {
+run_host_hook() {
     local HOOK_NAME=$1
-    local HOOK_COMMAND="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${HOOK_NAME}" )"
+    local HOOK_COMMAND="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${HOOK_NAME}" )"
     if [ -n "${HOOK_COMMAND}" ]; then
         echo -e "${YC} >>> Running host hook ${RC}${HOOK_NAME}${YC} ... ${NC}"
         bash -c "${HOOK_COMMAND}"
@@ -93,15 +93,15 @@ runHostHook() {
     fi
 }
 
-prepareContainerHook() {
+prepare_container_hook() {
     local HOOK_NAME=$1
-    local HOOK_COMMAND="$( getYamlConfigValue ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${HOOK_NAME}" )"
+    local HOOK_COMMAND="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${HOOK_NAME}" )"
     if [ -n "${HOOK_COMMAND}" ]; then
         echo "${HOOK_COMMAND} && "
     fi
 }
 
-runTerraform() {
+run_docker() {
     local cmd=$@
 
     if is_debug_verbose_mode; then
@@ -122,7 +122,7 @@ runTerraform() {
         -w=${PROJECT_DIR} \
         --entrypoint /bin/sh \
         hashicorp/terraform:${TF_VERSION} \
-        ${cmd:+-c} ${cmd:+"$( prepareContainerHook 'before_container_run' )${cmd}"}
+        ${cmd:+-c} ${cmd:+"$( prepare_container_hook 'before_container_run' )${cmd}"}
 
     { if is_debug_verbose_mode; then
         set +x;
@@ -131,66 +131,66 @@ runTerraform() {
 
 }
 
-runTerraformInit() {
-    runHostHook 'before_tf_init'
+run_tf_init() {
+    run_host_hook 'before_tf_init'
 
     local backend_config="${PROJECT_BACKEND_CONFIG:+"-backend-config=\"${PROJECT_BACKEND_CONFIG}\""}"
     cd "${PROJECT_DIR}" && \
         echo -e "Project dir is ${YC}${PROJECT_DIR}${NC} and we are currently right here!" && echo "" && \
         echo -e "${YC} >>> Running TF init${PROJECT_BACKEND_CONFIG:+" using '${backend_config}'"} ...${NC}" && \
-        runTerraform terraform init ${backend_config}
+        run_docker terraform init ${backend_config}
 
-    runHostHook 'after_tf_init'
+    run_host_hook 'after_tf_init'
 }
 
-askWorkspace() {
+ask_input_workspace() {
     read -p "Please input workspace name: " CURRENT_WORKSPACE
-    if [ -z "$( listWorkspaces | grep -E "${CURRENT_WORKSPACE}" )" ]; then
+    if [ -z "$( run_tf_workspace_list | grep -E "${CURRENT_WORKSPACE}" )" ]; then
         echo -e "${RC}Error${NC}: Ooops, wrong workspace name ${YC}${CURRENT_WORKSPACE}${NC}. Please try again!" >&2
-        askWorkspace
+        ask_input_workspace
     fi
 }
 
-listWorkspaces() {
-    runTerraform terraform workspace list
+run_tf_workspace_list() {
+    run_docker terraform workspace list
 }
 
-printListWorkspaces() {
+print_workspaces() {
     echo -e "\nTF workspaces:"
-    listWorkspaces
+    run_tf_workspace_list
 }
 
-selectWorkspace() {
+select_workspace() {
     if [ -n "${PROJECT_WORKSPACE}" ]; then
         echo -e "${YC} >>> Workspace '${RC}${PROJECT_WORKSPACE}${YC}' was found in config${NC}"
         CURRENT_WORKSPACE="${PROJECT_WORKSPACE}"
     else
         echo -e -n "${YC} >>> Detecting TF workspaces ... ${NC}"
-        local COUNT_OF_WORKSPACES="$( listWorkspaces | grep -v -e '^\s*$' | wc -l )"
+        local COUNT_OF_WORKSPACES="$( run_tf_workspace_list | grep -v -e '^\s*$' | wc -l )"
         echo "${COUNT_OF_WORKSPACES} was detected"
-        CURRENT_WORKSPACE="$( listWorkspaces | grep '*' | tr -dc '[:alnum:]' | cut -d " " -f2 )"
+        CURRENT_WORKSPACE="$( run_tf_workspace_list | grep '*' | tr -dc '[:alnum:]' | cut -d " " -f2 )"
 
         if [ $COUNT_OF_WORKSPACES -gt 1 ] || [ ! "${CURRENT_WORKSPACE}" = "default" ]; then
-            printListWorkspaces
-            askWorkspace
+            print_workspaces
+            ask_input_workspace
         fi
     fi
 
     echo -e "${YC} >>> Selecting TF workspace ${RC}${CURRENT_WORKSPACE}${YC} ... ${NC}"
-    runTerraform terraform workspace select ${CURRENT_WORKSPACE}
+    run_docker terraform workspace select ${CURRENT_WORKSPACE}
 }
 
-normalizeTfVarsFilename() {
-    local FILENAME=$1
-    if [[ "${FILENAME}" = *.tfvars ]] || [[ "${FILENAME}" = *.tfvars.json ]] || [[ "${FILENAME}" = *.tfvars.hcl ]]; then
-        echo "${FILENAME}"
-    else
-        echo "${FILENAME}.tfvars"
-    fi
-}
+ask_when_no_tfvars_file() {
+    function normalize_filename() {
+        local FILENAME=$1
+        if [[ "${FILENAME}" = *.tfvars ]] || [[ "${FILENAME}" = *.tfvars.json ]] || [[ "${FILENAME}" = *.tfvars.hcl ]]; then
+            echo "${FILENAME}"
+        else
+            echo "${FILENAME}.tfvars"
+        fi
+    }
 
-askIfNotExistsTfVarsFile() {
-    local FILENAME="$( normalizeTfVarsFilename "$1" )"
+    local FILENAME="$( normalize_filename "$1" )"
     local FILE="${PROJECT_DIR}/${FILENAME}"
 
     if [ -f "${FILE}" ]; then
@@ -201,11 +201,11 @@ askIfNotExistsTfVarsFile() {
         eval "ls ${PROJECT_DIR} | grep --color '.tfvars'" >&2
 
         read -p "Please input filename (with or without .tfvars extension) which one you want to work with: " FILENAME
-        echo "$( askIfNotExistsTfVarsFile "${FILENAME}" )"
+        echo "$( ask_when_no_tfvars_file "${FILENAME}" )"
     fi
 }
 
-humanTimeSinceFileModified() {
+get_human_time_since_file_modified() {
     local FILE=$1
     local TIME=$(( $(date +%s) - $(stat -f%c "${FILE}") ))
     local SECONDS=$((TIME%60))
@@ -221,10 +221,10 @@ humanTimeSinceFileModified() {
 
 # See @package: https://github.com/demmonico/bash-parse-yaml
 # get config value from yaml config
-# format: getYamlConfigValue YAML_FILE_NAME parent1 patent2 ... config_key_name
-function getYamlConfigValue {
+# format: get_yaml_value YAML_FILE_NAME parent1 patent2 ... config_key_name
+function get_yaml_value {
   if [ "$#" -lt 2 ]; then
-    echo -e "${RC}Error:${NC} too few arguments at '${YC}getYamlConfigValue${NC}'"
+    echo -e "${RC}Error:${NC} too few arguments at '${YC}get_yaml_value${NC}'"
     exit 1
   fi
 
@@ -313,13 +313,13 @@ if [ -z "${ALIAS}" ]; then
     exit 1
 fi
 
-initProject
+init
 
 #-----------------------------------------------------------#
 ##### Main
 #-----------------------------------------------------------#
 
-runHostHook 'before_all'
+run_host_hook 'before_all'
 
 # TF action
 case "${ACTION}" in
@@ -333,7 +333,7 @@ case "${ACTION}" in
             exit 0
         fi
 
-        runTerraform ${@:3}
+        run_docker ${@:3}
         exit;;
 
     # use the latest workspace
@@ -346,32 +346,30 @@ case "${ACTION}" in
             exit 0
         fi
 
-        runTerraform
+        run_docker
         exit;;
 
     'workspaces')
         echo -e "${YC} >>> Workspace '${RC}${PROJECT_WORKSPACE}${YC}' was found in alias config${NC}"
         echo -e "${YC} >>> Detecting TF workspaces ... ${NC}"
-        printListWorkspaces
+        print_workspaces
         exit;;
     
     'plan')
-        runTerraformInit
-
-        # TF workspaces
-        selectWorkspace
+        run_tf_init
+        select_workspace
 
         # TF validation
         echo -e "${YC} >>> Checking format and validating TF templates ... ${NC}"
-        runTerraform terraform fmt --check=true -recursive -diff
-        runTerraform terraform validate
+        run_docker terraform fmt --check=true -recursive -diff
+        run_docker terraform validate
 
         # TF tfvars
         echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}"
         if [ -z "${PROJECT_TFVAR}" ]; then
             # no pre-configured tfvars
             echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
-            TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${CURRENT_WORKSPACE}" )"
+            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
         elif [ "${PROJECT_TFVAR}" = '-' ]; then    
             # pre-configured to skip tfvars
@@ -381,7 +379,7 @@ case "${ACTION}" in
         else
             # pre-configured tfvars
             echo -e "${YC} >>> TFVARS filename '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
-            TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${PROJECT_TFVAR}" )"
+            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${PROJECT_TFVAR}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
         fi
 
@@ -389,7 +387,7 @@ case "${ACTION}" in
         echo -e "\n------------------------------------------------------------------------\n"
         echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
-        runTerraform terraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
+        run_docker terraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
         echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
@@ -398,15 +396,14 @@ case "${ACTION}" in
         echo -e "${YC} >>> Running in ${RC}DEBUG${YC} mode (without init backend, format check and validation)!${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
 
-        # TF workspaces
-        selectWorkspace
+        select_workspace
 
         # TF tfvars
         echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}"
         if [ -z "${PROJECT_TFVAR}" ]; then
             # no pre-configured tfvars
             echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
-            TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${CURRENT_WORKSPACE}" )"
+            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
         elif [ "${PROJECT_TFVAR}" = '-' ]; then
             # pre-configured to skip tfvars
@@ -416,7 +413,7 @@ case "${ACTION}" in
         else
             # pre-configured tfvars
             echo -e "${YC} >>> TFVARS filename '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
-            TFVARS_FILENAME="$( askIfNotExistsTfVarsFile "${PROJECT_TFVAR}" )"
+            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${PROJECT_TFVAR}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
         fi
 
@@ -424,15 +421,13 @@ case "${ACTION}" in
         echo -e "\n------------------------------------------------------------------------\n"
         echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
-        runTerraform terraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
+        run_docker terraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
         echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
     'apply')
-        runTerraformInit
-
-        # TF workspaces
-        selectWorkspace
+        run_tf_init
+        select_workspace
 
         # check TF plan
         if [ ! -f "${TF_PLAN_FILE}" ]; then
@@ -443,7 +438,7 @@ case "${ACTION}" in
         # TF apply
         echo -e "\n------------------------------------------------------------------------\n"
         echo -e "${YC} >>> Applying TF plan:${NC} ${RC}${TF_PLAN_FILENAME}${NC} / alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
-        echo -e "${YC} >>> ${NC}File ${YC}${TF_PLAN_FILE}${NC} was modified ${YC}$( humanTimeSinceFileModified "${TF_PLAN_FILE}" ) ago${NC}"
+        echo -e "${YC} >>> ${NC}File ${YC}${TF_PLAN_FILE}${NC} was modified ${YC}$( get_human_time_since_file_modified "${TF_PLAN_FILE}" ) ago${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
         
         read -p "Are you sure that you want to apply ${CURRENT_WORKSPACE}? To approve print 'yes': " APPLY_APPROVE
@@ -452,7 +447,7 @@ case "${ACTION}" in
             exit 0
         fi
 
-        runTerraform terraform apply ${TF_PLAN_FILENAME}
+        run_docker terraform apply ${TF_PLAN_FILENAME}
         rm ${TF_PLAN_FILE}
 
         echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"
@@ -464,8 +459,7 @@ case "${ACTION}" in
         echo -e "${YC} >>> Running in ${RC}DEBUG${YC} mode (without init backend, format check and validation)!${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
 
-        # TF workspaces
-        selectWorkspace
+        select_workspace
 
         # check TF plan
         if [ ! -f "${TF_PLAN_FILE}" ]; then
@@ -476,7 +470,7 @@ case "${ACTION}" in
         # TF apply
         echo -e "\n------------------------------------------------------------------------\n"
         echo -e "${YC} >>> Applying TF plan:${NC} ${RC}${TF_PLAN_FILENAME}${NC} / alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
-        echo -e "${YC} >>> ${NC}File ${YC}${TF_PLAN_FILE}${NC} was modified ${YC}$( humanTimeSinceFileModified "${TF_PLAN_FILE}" ) ago${NC}"
+        echo -e "${YC} >>> ${NC}File ${YC}${TF_PLAN_FILE}${NC} was modified ${YC}$( get_human_time_since_file_modified "${TF_PLAN_FILE}" ) ago${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
 
         read -p "Are you sure that you want to apply ${CURRENT_WORKSPACE}? To approve print 'yes': " APPLY_APPROVE
@@ -485,7 +479,7 @@ case "${ACTION}" in
             exit 0
         fi
 
-        runTerraform terraform apply ${TF_PLAN_FILENAME}
+        run_docker terraform apply ${TF_PLAN_FILENAME}
         rm ${TF_PLAN_FILE}
 
         echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"
@@ -497,4 +491,4 @@ case "${ACTION}" in
         exit 1;;
 esac
 
-runHostHook 'after_all'
+run_host_hook 'after_all'
