@@ -12,8 +12,8 @@ TerraCompose is a tool aimed to help to run Terraform commands in Docker and pro
 FORMAT: <SCRIPT_NAME> <ACTION> <ALIAS>
 
 <ACTION> - TF action you want to run:
-    - plan
-    - apply
+    - plan          - build TF plan, also available with `-debug` suffix (without init backend, format check and validation)
+    - apply         - apply TF plan, also available with `-debug` suffix (without init backend, format check and validation)
     - workspaces    - equal to `workspace list`
     - run           - proxy all arguments directly to `terraform`. 
                       Allows running any custom command
@@ -32,7 +32,7 @@ NC='\033[0m' # No Color
 
 VERBOSE_DEBUG_MODE=0
 VERBOSE_INFO_MODE=1
-VERBOSE_ERROR_MODE=2
+VERBOSE_ERROR_MODE=5
 VERBOSE_MODE="${VERBOSE_INFO_MODE}" # default
 
 _DIR="$(pwd)"
@@ -47,13 +47,13 @@ is_debug_verbose_mode() {
 }
 
 init() {
-    local PROJECT_SUBPATH="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'path' )"
-    if [ -z "${PROJECT_SUBPATH}" ]; then
+    local proj_subpath="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'path' )"
+    if [ -z "${proj_subpath}" ]; then
         echo -e "${RC}Error${NC}: no path was found for alias ${YC}${ALIAS}${NC}"
         exit 2
     fi
-    PROJECT_DIR="${BASE_DIR}/${PROJECT_SUBPATH}"
-    if [ -z "${PROJECT_DIR}" ] || [ ! -d "${PROJECT_DIR}" ]; then
+    PROJ_DIR="${BASE_DIR}/${proj_subpath}"
+    if [ -z "${PROJ_DIR}" ] || [ ! -d "${PROJ_DIR}" ]; then
         echo -e "${RC}Error${NC}: empty project DIR or was found for alias ${YC}${ALIAS}${NC}"
         exit 2
     fi
@@ -65,16 +65,16 @@ init() {
         exit 5
     fi
 
-    PROJECT_WORKSPACE="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'workspace' )"
-    PROJECT_TFVAR="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfvars' )"
+    PROJ_WORKSPACE="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'workspace' )"
+    PROJ_TFVAR="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfvars' )"
 
-    TF_PLAN_FILE="${PROJECT_DIR}/${TF_PLAN_FILENAME}"
+    TF_PLAN_FILE="${PROJ_DIR}/${TF_PLAN_FILENAME}"
 
-    local TF_DEFAULT_VERSION="$( get_yaml_value ${CONFIG_YAML_FILE} 'default' 'tfversion' )"
-    local TF_PROJECT_VERSION="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfversion' )"
-    TF_VERSION="${TF_PROJECT_VERSION:-${TF_DEFAULT_VERSION}}"
+    local tf_default_version="$( get_yaml_value ${CONFIG_YAML_FILE} 'default' 'tfversion' )"
+    local tf_proj_version="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfversion' )"
+    TF_VERSION="${tf_proj_version:-${tf_default_version}}"
 
-    PROJECT_BACKEND_CONFIG="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'backend_config' )"
+    PROJ_BACKEND_CONFIG="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'backend_config' )"
 
     # env vars file
     ENV_VARS_FILE_DOCKER_PARAM=''
@@ -84,20 +84,20 @@ init() {
 }
 
 run_host_hook() {
-    local HOOK_NAME=$1
-    local HOOK_COMMAND="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${HOOK_NAME}" )"
-    if [ -n "${HOOK_COMMAND}" ]; then
-        echo -e "${YC} >>> Running host hook ${RC}${HOOK_NAME}${YC} ... ${NC}"
-        bash -c "${HOOK_COMMAND}"
+    local hook_name=$1
+    local hook_cmd="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${hook_name}" )"
+    if [ -n "${hook_cmd}" ]; then
+        echo -e "${YC} >>> Running host hook ${RC}${hook_name}${YC} ... ${NC}"
+        bash -c "${hook_cmd}"
         echo -e "${YC} >>> Done ${NC}"
     fi
 }
 
 prepare_container_hook() {
-    local HOOK_NAME=$1
-    local HOOK_COMMAND="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${HOOK_NAME}" )"
-    if [ -n "${HOOK_COMMAND}" ]; then
-        echo "${HOOK_COMMAND} && "
+    local hook_name=$1
+    local hook_cmd="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${hook_name}" )"
+    if [ -n "${hook_cmd}" ]; then
+        echo "${hook_cmd} && "
     fi
 }
 
@@ -107,7 +107,7 @@ run_docker() {
     if is_debug_verbose_mode; then
         echo -e "${YC} >>> Command: ${RC}"
         # prevent to expand the color on the subshell when spinning up the interactive shell
-        if [ -z "${args}" ]; then
+        if [ -z "${cmd}" ]; then
             echo -n -e "${NC}"
         fi
         set -x
@@ -119,7 +119,7 @@ run_docker() {
         -v ~/.ssh:/root/.ssh \
         -e AWS_PROFILE=${AWS_PROFILE} \
         ${ENV_VARS_FILE_DOCKER_PARAM} \
-        -w=${PROJECT_DIR} \
+        -w=${PROJ_DIR} \
         --entrypoint /bin/sh \
         hashicorp/terraform:${TF_VERSION} \
         ${cmd:+-c} ${cmd:+"$( prepare_container_hook 'before_container_run' )${cmd}"}
@@ -134,10 +134,10 @@ run_docker() {
 run_tf_init() {
     run_host_hook 'before_tf_init'
 
-    local backend_config="${PROJECT_BACKEND_CONFIG:+"-backend-config=\"${PROJECT_BACKEND_CONFIG}\""}"
-    cd "${PROJECT_DIR}" && \
-        echo -e "Project dir is ${YC}${PROJECT_DIR}${NC} and we are currently right here!" && echo "" && \
-        echo -e "${YC} >>> Running TF init${PROJECT_BACKEND_CONFIG:+" using '${backend_config}'"} ...${NC}" && \
+    local backend_config="${PROJ_BACKEND_CONFIG:+"-backend-config=\"${PROJ_BACKEND_CONFIG}\""}"
+    cd "${PROJ_DIR}" && \
+        echo -e "Project dir is ${YC}${PROJ_DIR}${NC} and we are currently right here!" && echo "" && \
+        echo -e "${YC} >>> Running TF init${PROJ_BACKEND_CONFIG:+" using '${backend_config}'"} ...${NC}" && \
         run_docker terraform init ${backend_config}
 
     run_host_hook 'after_tf_init'
@@ -161,16 +161,16 @@ print_workspaces() {
 }
 
 select_workspace() {
-    if [ -n "${PROJECT_WORKSPACE}" ]; then
-        echo -e "${YC} >>> Workspace '${RC}${PROJECT_WORKSPACE}${YC}' was found in config${NC}"
-        CURRENT_WORKSPACE="${PROJECT_WORKSPACE}"
+    if [ -n "${PROJ_WORKSPACE}" ]; then
+        echo -e "${YC} >>> Workspace '${RC}${PROJ_WORKSPACE}${YC}' was found in config${NC}"
+        CURRENT_WORKSPACE="${PROJ_WORKSPACE}"
     else
         echo -e -n "${YC} >>> Detecting TF workspaces ... ${NC}"
-        local COUNT_OF_WORKSPACES="$( run_tf_workspace_list | grep -v -e '^\s*$' | wc -l )"
-        echo "${COUNT_OF_WORKSPACES} was detected"
+        local workspaces_count="$( run_tf_workspace_list | grep -v -e '^\s*$' | wc -l )"
+        echo "${workspaces_count} was detected"
         CURRENT_WORKSPACE="$( run_tf_workspace_list | grep '*' | tr -dc '[:alnum:]' | cut -d " " -f2 )"
 
-        if [ $COUNT_OF_WORKSPACES -gt 1 ] || [ ! "${CURRENT_WORKSPACE}" = "default" ]; then
+        if [ ${workspaces_count} -gt 1 ] || [ ! "${CURRENT_WORKSPACE}" = "default" ]; then
             print_workspaces
             ask_input_workspace
         fi
@@ -182,41 +182,41 @@ select_workspace() {
 
 ask_when_no_tfvars_file() {
     function normalize_filename() {
-        local FILENAME=$1
-        if [[ "${FILENAME}" = *.tfvars ]] || [[ "${FILENAME}" = *.tfvars.json ]] || [[ "${FILENAME}" = *.tfvars.hcl ]]; then
-            echo "${FILENAME}"
+        local filename=$1
+        if [[ "${filename}" = *.tfvars ]] || [[ "${filename}" = *.tfvars.json ]] || [[ "${filename}" = *.tfvars.hcl ]]; then
+            echo "${filename}"
         else
-            echo "${FILENAME}.tfvars"
+            echo "${filename}.tfvars"
         fi
     }
 
-    local FILENAME="$( normalize_filename "$1" )"
-    local FILE="${PROJECT_DIR}/${FILENAME}"
+    local filename="$( normalize_filename "$1" )"
+    local file="${PROJ_DIR}/${filename}"
 
-    if [ -f "${FILE}" ]; then
-        echo "${FILENAME}"
+    if [ -f "${file}" ]; then
+        echo "${filename}"
     else
-        echo -e "Oops, file ${RC}${FILENAME}${NC} was not found at ${YC}${PROJECT_DIR}${NC} folder!" >&2
+        echo -e "Oops, file ${RC}${filename}${NC} was not found at ${YC}${PROJ_DIR}${NC} folder!" >&2
         echo -e "There are ${YC}*.tfvars${NC} files:" >&2
-        eval "ls ${PROJECT_DIR} | grep --color '.tfvars'" >&2
+        eval "ls ${PROJ_DIR} | grep --color '.tfvars'" >&2
 
-        read -p "Please input filename (with or without .tfvars extension) which one you want to work with: " FILENAME
-        echo "$( ask_when_no_tfvars_file "${FILENAME}" )"
+        read -p "Please input filename (with or without .tfvars extension) which one you want to work with: " filename
+        echo "$( ask_when_no_tfvars_file "${filename}" )"
     fi
 }
 
 get_human_time_since_file_modified() {
-    local FILE=$1
-    local TIME=$(( $(date +%s) - $(stat -f%c "${FILE}") ))
-    local SECONDS=$((TIME%60))
-    local MINUTES=$((TIME/60%60))
-    local HOURS=$((TIME/60/60%24))
-    local DAYS=$((TIME/60/60/24))
-    (( $DAYS > 0 )) && printf '%d days ' $DAYS
-    (( $HOURS > 0 )) && printf '%d hours ' $HOURS
-    (( $MINUTES > 0 )) && printf '%d minutes ' $MINUTES
-    (( $DAYS > 0 || $HOURS > 0 || $MINUTES > 0 )) && printf 'and '
-    printf '%d seconds\n' $SECONDS
+    local file=$1
+    local time=$(( $(date +%s) - $(stat -f%c "${file}") ))
+    local sec=$((time%60))
+    local min=$((time/60%60))
+    local h=$((time/60/60%24))
+    local d=$((time/60/60/24))
+    (( ${d} > 0 )) && printf '%d days ' ${d}
+    (( ${h} > 0 )) && printf '%d hours ' ${h}
+    (( ${min} > 0 )) && printf '%d minutes ' ${min}
+    (( ${d} > 0 || ${h} > 0 || ${min} > 0 )) && printf 'and '
+    printf '%d seconds\n' ${sec}
 }
 
 # See @package: https://github.com/demmonico/bash-parse-yaml
@@ -228,11 +228,11 @@ function get_yaml_value {
     exit 1
   fi
 
-  local PREFIX='' CONFIG_YAML_FILE=$1
+  local prefix='' CONFIG_YAML_FILE=$1
 
-  local CONFIG_PATH="${PREFIX}"
+  local config_path="${prefix}"
   for i in "${@:2}"; do
-    [ -z "${CONFIG_PATH}" ] && CONFIG_PATH="${i}" || CONFIG_PATH="${CONFIG_PATH}_${i}"
+    [ -z "${config_path}" ] && config_path="${i}" || config_path="${config_path}_${i}"
   done
 
   local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
@@ -248,42 +248,42 @@ function get_yaml_value {
       if (length($2) == 0) { vname[indent]= ++idx[indent] };
       if (length($3) > 0) {
          vn=""; for (i=0; i<indent; i++) { vn=(vn)(vname[i])("_")}
-         printf("%s%s%s=\"%s\"\n", "'${PREFIX:+${PREFIX}_}'", vn, vname[indent], $3);
+         printf("%s%s%s=\"%s\"\n", "'${prefix:+${prefix}_}'", vn, vname[indent], $3);
       }
    }' |\
   # filter using pattern
-  grep ${CONFIG_PATH} | \
+  grep ${config_path} | \
   # fetch string value or list values
   {
-    local RESULT
-    declare -a CONFIG_RESULTS=()
-    while read line; do CONFIG_RESULTS+=("${line}"); done
+    local result
+    declare -a config_results=()
+    while read line; do config_results+=("${line}"); done
 
     # list value
-    if [[ "${#CONFIG_RESULTS[*]}" -gt 1 ]]; then
-      local CONFIG_VALUES=''
-      for i in "${CONFIG_RESULTS[@]}"; do
-        CONFIG_KEY="$( echo "${i}" | sed -E 's/^'"${CONFIG_PATH}_"'(.*)=.*$/\1/g' )"
-        # validate key should be like ${CONFIG_PATH}_<number>
+    if [[ "${#config_results[*]}" -gt 1 ]]; then
+      local config_values=''
+      for i in "${config_results[@]}"; do
+        CONFIG_KEY="$( echo "${i}" | sed -E 's/^'"${config_path}_"'(.*)=.*$/\1/g' )"
+        # validate key should be like ${config_path}_<number>
         if ! [[ ${CONFIG_KEY} =~ ^[0-9]+$ ]]; then
-          echo -e "${RC}Error:${NC} config path '${YC}${CONFIG_PATH}${NC}' contains non-supported value (string or list)"
+          echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains non-supported value (string or list)"
           exit 1
         fi
         # collect value
-        if [ -z "${CONFIG_VALUES}" ]; then
-          CONFIG_VALUES="$( echo "${i}" | sed -E 's/^.*"(.*)".*$/\1/g' )"
+        if [ -z "${config_values}" ]; then
+          config_values="$( echo "${i}" | sed -E 's/^.*"(.*)".*$/\1/g' )"
         else
-          CONFIG_VALUES="${CONFIG_VALUES}"$'\n'"$( echo "${i}" | sed -E 's/^.*"(.*)".*$/\1/g' )"
+          config_values="${config_values}"$'\n'"$( echo "${i}" | sed -E 's/^.*"(.*)".*$/\1/g' )"
         fi
       done
-      RESULT="${CONFIG_VALUES}"
+      result="${config_values}"
 
     # single value
     else
-      RESULT=$( echo "${CONFIG_RESULTS[@]}" | sed -E 's/^.*"(.*)".*$/\1/g' )
+      result=$( echo "${config_results[@]}" | sed -E 's/^.*"(.*)".*$/\1/g' )
     fi
 
-    echo "${RESULT}"
+    echo "${result}"
   }
 }
 
@@ -325,7 +325,7 @@ run_host_hook 'before_all'
 case "${ACTION}" in
     # use the latest workspace
     'run')
-        echo -e "${YC} >>> Running custom command ${RC}terraform ${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJECT_DIR})${NC}."
+        echo -e "${YC} >>> Running custom command ${RC}terraform ${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
         read -p "Are you sure to proceed? To approve print 'yes': " APPLY_APPROVE
         if [ ! "${APPLY_APPROVE}" = 'yes' ]; then
@@ -338,7 +338,7 @@ case "${ACTION}" in
 
     # use the latest workspace
     'shell')
-        echo -e "${YC} >>> Shelling into the ${RC}terraform ${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJECT_DIR})${NC}."
+        echo -e "${YC} >>> Shelling into the ${RC}terraform ${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
         read -p "Are you sure to proceed? To approve print 'yes': " APPLY_APPROVE
         if [ ! "${APPLY_APPROVE}" = 'yes' ]; then
@@ -350,7 +350,7 @@ case "${ACTION}" in
         exit;;
 
     'workspaces')
-        echo -e "${YC} >>> Workspace '${RC}${PROJECT_WORKSPACE}${YC}' was found in alias config${NC}"
+        echo -e "${YC} >>> Workspace '${RC}${PROJ_WORKSPACE}${YC}' was found in alias config${NC}"
         echo -e "${YC} >>> Detecting TF workspaces ... ${NC}"
         print_workspaces
         exit;;
@@ -366,20 +366,20 @@ case "${ACTION}" in
 
         # TF tfvars
         echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}"
-        if [ -z "${PROJECT_TFVAR}" ]; then
+        if [ -z "${PROJ_TFVAR}" ]; then
             # no pre-configured tfvars
             echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
             TFVARS_FILENAME="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
-        elif [ "${PROJECT_TFVAR}" = '-' ]; then    
+        elif [ "${PROJ_TFVAR}" = '-' ]; then
             # pre-configured to skip tfvars
-            echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
+            echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}"
             TFVARS_FILENAME="-"
             TFVARS_COMMAND_PARAM=""
         else
             # pre-configured tfvars
-            echo -e "${YC} >>> TFVARS filename '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
-            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${PROJECT_TFVAR}" )"
+            echo -e "${YC} >>> TFVARS filename '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}"
+            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${PROJ_TFVAR}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
         fi
 
@@ -400,20 +400,20 @@ case "${ACTION}" in
 
         # TF tfvars
         echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}"
-        if [ -z "${PROJECT_TFVAR}" ]; then
+        if [ -z "${PROJ_TFVAR}" ]; then
             # no pre-configured tfvars
             echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
             TFVARS_FILENAME="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
-        elif [ "${PROJECT_TFVAR}" = '-' ]; then
+        elif [ "${PROJ_TFVAR}" = '-' ]; then
             # pre-configured to skip tfvars
-            echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
+            echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}"
             TFVARS_FILENAME="-"
             TFVARS_COMMAND_PARAM=""
         else
             # pre-configured tfvars
-            echo -e "${YC} >>> TFVARS filename '${RC}${PROJECT_TFVAR}${YC}' was found in alias config${NC}"
-            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${PROJECT_TFVAR}" )"
+            echo -e "${YC} >>> TFVARS filename '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}"
+            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${PROJ_TFVAR}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
         fi
 

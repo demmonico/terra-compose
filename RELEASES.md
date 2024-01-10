@@ -11,9 +11,10 @@
 ### v1.2
 - added support for `AWS_DEFAULT_PROFILE` env var as a default value for `AWS_PROFILE`
 
-### v1.3-rc
+### v1.3
 - refactored run Terraform in container functions
 - renamed host-based hooks; added container-based hook `before_container_run`
+- improved functions and local vars naming
 
 # TODOs
 
@@ -30,4 +31,3 @@
 - ADD tc log
 - ADD customisation for env and aliases files
 - implement verbosity cmd flags
-- reformat code to follow conventions
