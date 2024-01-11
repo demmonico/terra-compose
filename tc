@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #-----------------------------------------------------------#
-# @author: demmonico, @email demmonico@gmail.com, @repo https://github.com/demmonico/terra-compose, ©2021-2023
+# @author: demmonico, @email demmonico@gmail.com, @repo https://github.com/demmonico/terra-compose, ©2021-2024
 #-----------------------------------------------------------#
 
 read -r -d '' HELP_STRING <<'EOF'
@@ -12,8 +12,10 @@ TerraCompose is a tool aimed to help to run Terraform commands in Docker and pro
 FORMAT: <SCRIPT_NAME> <ACTION> <ALIAS>
 
 <ACTION> - TF action you want to run:
-    - plan          - build TF plan, also available with `-debug` suffix (without init backend, format check and validation)
-    - apply         - apply TF plan, also available with `-debug` suffix (without init backend, format check and validation)
+    - plan          - build TF plan, also available with `-debug` suffix
+                      (debug mode will skip init, format check and validation steps)
+    - apply         - apply TF plan, also available with `-debug` suffix
+                      (debug mode will skip init, format check and validation steps)
     - workspaces    - equal to `workspace list`
     - run           - proxy all arguments directly to `terraform`. 
                       Allows running any custom command
