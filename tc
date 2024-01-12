@@ -327,7 +327,7 @@ run_host_hook 'before_all'
 case "${ACTION}" in
     # use the latest workspace
     'run')
-        echo -e "${YC} >>> Running custom command ${RC}terraform ${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
+        echo -e "${YC} >>> Running custom command ${RC}${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
         read -p "Are you sure to proceed? To approve print 'yes': " APPLY_APPROVE
         if [ ! "${APPLY_APPROVE}" = 'yes' ]; then
@@ -340,7 +340,7 @@ case "${ACTION}" in
 
     # use the latest workspace
     'shell')
-        echo -e "${YC} >>> Shelling into the ${RC}terraform ${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
+        echo -e "${YC} >>> Shelling into the ${RC}${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
         read -p "Are you sure to proceed? To approve print 'yes': " APPLY_APPROVE
         if [ ! "${APPLY_APPROVE}" = 'yes' ]; then
