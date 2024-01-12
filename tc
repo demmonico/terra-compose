@@ -116,6 +116,7 @@ run_docker() {
     fi
 
     docker run --rm -ti \
+        $( if [[ `uname -m` == "arm64" ]]; then echo "--platform linux/amd64"; fi ) \
         -v "${BASE_DIR}":"${BASE_DIR}" \
         -v ~/.aws:/root/.aws \
         -v ~/.ssh:/root/.ssh \
