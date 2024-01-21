@@ -4,33 +4,23 @@
 solving the problem of the Terraform version drift and pain with the different sub-projects configurations in a mono-repo. 
 As a configuration it uses a simple yaml file containing the list of projects and their configurations, which is visible and trackable by any VCS.
 
+
 ## Installation
 
 To install package please follow the steps:
+- [install Docker engine](https://docs.docker.com/get-docker/) _(used for running Terraform commands in the container)_
 - [download executable](#download)
-- [setup AWS credentials](#aws-credentials-setup)
-
-### Versions
-
-#### OS environment
-
-Was tested in the following OS environment:
-- `MacOS Monterey / Sonoma` + `zsh`
-
-**Note**: it wasn't tested in other OS. Feel free to create a MR to add installation details for other environments. 
-
-#### Terraform versions
-
-Was tested in Terraform versions `>= 0.14`, but `<= 1.5.5`.
-**Is NOT compatible** with Terraform versions `< 0.14` due to the breaking changes in Terraform CLI arguments
+- [setup cloud credentials](#setup-cloud-credentials) _(depends on your cloud provider, but **was tested ONLY with AWS**)_
 
 ### Download
 
-See [Versions section](#versions) that clarifies version specifics.
+See [Tested section](#tested) that clarifies which versions of OS / Terraform / etc were tested.
 
 #### Download for MacOS
 
-Tested on `Monterey`/`Sonoma` + `zsh`:
+Tested on `Monterey`/`Sonoma` + `zsh` + `Docker Desktop`:
+
+```shell
 
 ```shell
 $ wget https://raw.githubusercontent.com/demmonico/terra-compose/master/tc \
@@ -38,7 +28,11 @@ $ wget https://raw.githubusercontent.com/demmonico/terra-compose/master/tc \
   && sudo ln -s ${PWD}/tc /usr/local/bin/tc
 ```
 
-### AWS credentials setup
+### Setup cloud credentials
+
+The tool should work well with any cloud providers, but **was tested ONLY with AWS**. Thus, the following steps are related to AWS.
+
+#### AWS credentials setup
 
 - get `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` env vars for your user with sufficient privileges from the AWS Console
 - configure AWS CLI (see [docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) for details):
@@ -50,6 +44,23 @@ $ wget https://raw.githubusercontent.com/demmonico/terra-compose/master/tc \
   ```shell
   $ export AWS_PROFILE=<YOUR_AWS_PROFILE_NAME>
   ```
+
+### Tested
+
+This section clarifies which versions of OS / Terraform / etc were tested.
+
+#### OS versions
+
+Was tested in the following OS environments:
+- `MacOS Monterey / Sonoma` + `zsh`
+
+**Note**: it wasn't tested in other OS. Feel free to create a MR to add installation details for other environments.
+
+#### Terraform versions
+
+Was tested in Terraform versions `>= 0.14`, but `<= 1.6`.
+**Is NOT compatible** with Terraform versions `< 0.14` due to the breaking changes in Terraform CLI arguments
+
 
 ## Configuration
 
@@ -113,9 +124,11 @@ aliases:
     tfversion: "1.3.0"
 ```
 
+
 ## Releases
 
 [List of releases](RELEASES.md#releases)
+
 
 ## TODOs
 
