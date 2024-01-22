@@ -1,9 +1,13 @@
 # Terra Compose
 
-`Terra Compose` is a wrapper for calling Terraform commands in the Docker, 
-solving the problem of the Terraform version drift and pain with the different sub-projects configurations in a mono-repo. 
-As a configuration it uses a simple yaml file containing the list of projects and their configurations, which is visible and trackable by any VCS.
+`Terra Compose` is a wrapper for calling Terraform commands in the Docker.
+It aims to simplify the management of multiple Terraform projects within a single mono-repo. 
+By solving problems with fragile and long maintenance and uncertainty about the correctness changes, caused by low visibility of the workspace.
 
+For that, it follows the approach of the Docker Compose and puts all the needed information into the YAML config, which is visible and trackable by any VCS within the codebase. 
+This way it gets rid of human involvement as much as possible, minimizing the risk of human error.
+
+_**Note:** An article, explaining the tool and idea behind it, can be found [in Medium](https://medium.com/@demmonico/multiple-terraform-projects-in-a-mono-repo-how-to-survive-a-mess-e1ec5a136d17)._
 
 ## Installation
 
