@@ -7,7 +7,9 @@ By solving problems with fragile and long maintenance and uncertainty about the 
 For that, it follows the approach of the Docker Compose and puts all the needed information into the YAML config, which is visible and trackable by any VCS within the codebase. 
 This way it gets rid of human involvement as much as possible, minimizing the risk of human error.
 
-_**Note:** An article, explaining the tool and idea behind it, can be found [in Medium](https://medium.com/@demmonico/multiple-terraform-projects-in-a-mono-repo-how-to-survive-a-mess-e1ec5a136d17)._
+**Important links, that might be useful:** 
+- _[An article in Medium](https://medium.com/@demmonico/multiple-terraform-projects-in-a-mono-repo-how-to-survive-a-mess-e1ec5a136d17), explaining the tool and idea behind it._
+- _[A Conf42 DevOps 2024 presentation](https://youtu.be/R7Ias3EeIYI?si=uotLrdORP6SqO8ew), doing the same._
 
 ## Installation
 
