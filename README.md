@@ -131,6 +131,13 @@ aliases:
     tfversion: "1.3.0"
 ```
 
+### Advanced
+
+#### Pass env variables
+
+It's possible to pass the environment variables to the engine. For that just create an `.env` file at the root project level (same level as project's alias configuration file is).
+
+
 ### Development
 
 For development you need to clone this repo and link script to the `bin` directory:

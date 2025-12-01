@@ -41,6 +41,7 @@ _DIR="$(pwd)"
 BASE_DIR="${_DIR}"
 CONFIG_YAML_FILE="${_DIR}/aliases.yaml"
 TF_PLAN_FILENAME='plan.tfplan'
+_SKIP_VALUE="-"
 
 HELP_STRING="${HELP_STRING}$( echo -e "\n\nList of available aliases from ${YC}${CONFIG_YAML_FILE}${NC}:\n>>>>>"; cat ${CONFIG_YAML_FILE} | grep -v -E "^$|^\s*\#"; echo "<<<<<" )"
 
@@ -164,9 +165,18 @@ print_workspaces() {
 }
 
 select_workspace() {
-    if [ -n "${PROJ_WORKSPACE}" ]; then
+    # project-specific, set to skip
+    if [ "${PROJ_WORKSPACE}" = "${_SKIP_VALUE}" ]; then
+        echo -e "${YC} >>> Flag to skip workspace selection was found in config. Skiping it...${NC}"
+        CURRENT_WORKSPACE="default (skipped)"
+        return
+    
+    # project-specific
+    elif [ -n "${PROJ_WORKSPACE}" ]; then
         echo -e "${YC} >>> Workspace '${RC}${PROJ_WORKSPACE}${YC}' was found in config${NC}"
         CURRENT_WORKSPACE="${PROJ_WORKSPACE}"
+    
+    # no project-specific, trying to detect
     else
         echo -e -n "${YC} >>> Detecting TF workspaces ... ${NC}"
         local workspaces_count="$( run_tf_workspace_list | grep -v -e '^\s*$' | wc -l )"
@@ -374,10 +384,10 @@ case "${ACTION}" in
             echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
             TFVARS_FILENAME="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
-        elif [ "${PROJ_TFVAR}" = '-' ]; then
+        elif [ "${PROJ_TFVAR}" = "${_SKIP_VALUE}" ]; then
             # pre-configured to skip tfvars
             echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}"
-            TFVARS_FILENAME="-"
+            TFVARS_FILENAME="${_SKIP_VALUE}"
             TFVARS_COMMAND_PARAM=""
         else
             # pre-configured tfvars
@@ -408,10 +418,10 @@ case "${ACTION}" in
             echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
             TFVARS_FILENAME="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
             TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
-        elif [ "${PROJ_TFVAR}" = '-' ]; then
+        elif [ "${PROJ_TFVAR}" = "${_SKIP_VALUE}" ]; then
             # pre-configured to skip tfvars
             echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}"
-            TFVARS_FILENAME="-"
+            TFVARS_FILENAME="${_SKIP_VALUE}"
             TFVARS_COMMAND_PARAM=""
         else
             # pre-configured tfvars
