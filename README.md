@@ -58,7 +58,8 @@ This section clarifies which versions of OS / Terraform / etc were tested.
 #### OS versions
 
 Was tested in the following OS environments:
-- `MacOS Monterey / Sonoma` + `zsh`
+- `MacOS Monterey / Ventura / Sonoma / Sequoia`
+- shell `bash / zsh`
 
 **Note**: it wasn't tested in other OS. Feel free to create a MR to add installation details for other environments.
 
@@ -129,6 +130,18 @@ aliases:
     workspace: "production"
     tfversion: "1.3.0"
 ```
+
+### Development
+
+For development you need to clone this repo and link script to the `bin` directory:
+- `git clone git@github.com:demmonico/terra-compose.git`
+- check for the Git config:
+  ```shell
+  git config user.name
+  git config user.email
+  ```
+- **[optional]** backup the current version if needed `sudo mv -f /usr/local/bin/tc /usr/local/bin/tc.bak`
+- `sudo ln -s ${PWD}/tc /usr/local/bin/tc`
 
 
 ## Releases
