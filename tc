@@ -79,11 +79,34 @@ init() {
 
     PROJ_BACKEND_CONFIG="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'backend_config' )"
 
+    ### env vars file
     # env vars file
-    ENV_VARS_FILE_DOCKER_PARAM=''
-    if [ -f .env ]; then
-      ENV_VARS_FILE_DOCKER_PARAM="--env-file ${BASE_DIR}/.env"
+    local default_env_vars_file="$( get_yaml_value ${CONFIG_YAML_FILE} 'default' 'env_vars_file' )"
+    local proj_env_vars_file="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'env_vars_file' )"
+    local env_vars_file="${proj_env_vars_file:-${default_env_vars_file}}"
+    if [ -z "${env_vars_file}" ]; then
+        echo -e "${YC} >>> Didn't found env file param, searching for env file name...${NC}"
+        # env vars filename
+        local default_env_vars_file_name="$( get_yaml_value ${CONFIG_YAML_FILE} 'default' 'env_vars_file_name' )"
+        local proj_env_vars_file_name="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'env_vars_file_name' )"
+        local env_vars_file_name="${proj_env_vars_file_name:-${default_env_vars_file_name:-.env}}"
+        env_vars_file="${BASE_DIR}/${env_vars_file_name}"
     fi
+    ENV_VARS_FILE_DOCKER_PARAM=''
+    if [ -f "${env_vars_file}" ]; then
+      echo -e "${YC} >>> Found env file '${env_vars_file}', injecting it...${NC}"
+      ENV_VARS_FILE_DOCKER_PARAM="--env-file ${env_vars_file}"
+    else
+      echo -e "${YC} >>> Didn't found env file '${env_vars_file}', skipping it...${NC}"
+    fi
+
+    ### env vars str
+    ENV_VARS_STR_DOCKER_PARAM=''
+    # PROJ_ENV_VARS="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'env123' )"
+    # if [ -n "${PROJ_ENV_VARS}" ]; then
+    #   echo -e "${YC} >>> Found env variables, injecting them...${NC}"
+    #   echo "PROJ_ENV_VARS=${PROJ_ENV_VARS}-"
+    # fi
 }
 
 run_host_hook() {
@@ -123,6 +146,7 @@ run_docker() {
         -v ~/.ssh:/root/.ssh \
         -e AWS_PROFILE=${AWS_PROFILE} \
         ${ENV_VARS_FILE_DOCKER_PARAM} \
+        ${ENV_VARS_STR_DOCKER_PARAM} \
         -w=${PROJ_DIR} \
         --entrypoint /bin/sh \
         hashicorp/terraform:${TF_VERSION} \
@@ -241,11 +265,12 @@ function get_yaml_value {
     exit 1
   fi
 
-  local prefix='' CONFIG_YAML_FILE=$1
+  # Starting from Terra Compose v1.4 internally "&" used as a config levels separator
+  local separator='&' prefix='' CONFIG_YAML_FILE=$1
 
   local config_path="${prefix}"
   for i in "${@:2}"; do
-    [ -z "${config_path}" ] && config_path="${i}" || config_path="${config_path}_${i}"
+    [ -z "${config_path}" ] && config_path="${i}" || config_path="${config_path}${separator}${i}"
   done
 
   local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
@@ -253,19 +278,20 @@ function get_yaml_value {
   sed -ne "s|^\($s\):|\1|" \
       -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
       -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
-  # compose list of variables like parent1_parent2_target="target value"
+  # compose list of variables like parent1_parent2_target="target value" ("_" is a separator local variable)
   awk -F$fs '{
       indent = length($1)/2;
       vname[indent] = $2;
       for (i in vname) { if (i > indent) { delete vname[i]; idx[i]=0 } };
       if (length($2) == 0) { vname[indent]= ++idx[indent] };
       if (length($3) > 0) {
-         vn=""; for (i=0; i<indent; i++) { vn=(vn)(vname[i])("_")}
-         printf("%s%s%s=\"%s\"\n", "'${prefix:+${prefix}_}'", vn, vname[indent], $3);
+         vn=""; for (i=0; i<indent; i++) { vn=(vn)(vname[i])("'${separator}'")}
+         printf("%s%s%s=\"%s\"\n", "'${prefix:+${prefix}${separator}}'", vn, vname[indent], $3);
       }
    }' |\
   # filter using pattern
-  grep ${config_path} | \
+  # Starting from Terra Compose v1.4 it compares config path strictly (before it was prefix search)
+  grep -E "${config_path}(\||=)" | \
   # fetch string value or list values
   {
     local result
@@ -276,8 +302,8 @@ function get_yaml_value {
     if [[ "${#config_results[*]}" -gt 1 ]]; then
       local config_values=''
       for i in "${config_results[@]}"; do
-        CONFIG_KEY="$( echo "${i}" | sed -E 's/^'"${config_path}_"'(.*)=.*$/\1/g' )"
-        # validate key should be like ${config_path}_<number>
+        CONFIG_KEY="$( echo "${i}" | sed -E 's/^'"${config_path}${separator}"'(.*)=.*$/\1/g' )"
+        # validate key should be like ${config_path}${separator}<number>
         if ! [[ ${CONFIG_KEY} =~ ^[0-9]+$ ]]; then
           echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains non-supported value (string or list)"
           exit 1

@@ -79,8 +79,10 @@ Thus, in the root folder of the project, create file `aliases.yaml`. For details
 Globally can be defined only Terraform version as a default value across the aliases. It's an optional section
 
 ```yaml
-default:                                # [optional, used as a default across the aliases]
+default:                                # [optional section, used as a default across the aliases]
   tfversion: "x.x.x"                    # [optional, but if alias also does not have this section, an error will be thrown]
+  env_vars_file_name: "my-env"          # default filename of the env vars to be injected in container runtime. Key `env_vars_file` has priority over `env_vars_file_name`
+  env_vars_file: "/path/to/my-env"      # default filepath of the env vars to be injected in container runtime. Key `env_vars_file` has priority over `env_vars_file_name`
 ```
 
 ### Aliases settings
@@ -95,6 +97,8 @@ aliases:
     workspace: "live"                   # [optional, "default" will be used if exists and no more choice OR ask]
     tfvars: "nonprod"                   # [optional, workspace name will be used if skip OR ask, could be "-" for skipping tfvars attaching]
     tfversion: "x.x.x"                  # [optional, from the default section will be used if omitted]
+    env_vars_file_name: "my-env"        # [optional, from the default section will be used if omitted] filename of the env vars to be injected in container runtime. Key `env_vars_file` has priority over `env_vars_file_name`
+    env_vars_file: "/path/to/my-env"    # [optional, from the default section will be used if omitted] filepath of the env vars to be injected in container runtime. Key `env_vars_file` has priority over `env_vars_file_name`
     hooks:                              # [optional, scripts or commands to run before/after TF init or action in any combination]
       before_tf_init:       "run any bash script or command on host"
       after_tf_init:        "run any bash script or command on host"
