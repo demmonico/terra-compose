@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #-----------------------------------------------------------#
-# @author: demmonico, @email demmonico@gmail.com, @repo https://github.com/demmonico/terra-compose, ©2021-2024
+# @author: demmonico, @email demmonico@gmail.com, ©2021-2025
+# @repo https://github.com/demmonico/terra-compose
 #-----------------------------------------------------------#
 
 read -r -d '' HELP_STRING <<'EOF'
@@ -101,12 +102,12 @@ init() {
     fi
 
     ### env vars str
+    local proj_env_vars="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'env' )"
     ENV_VARS_STR_DOCKER_PARAM=''
-    # PROJ_ENV_VARS="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'env123' )"
-    # if [ -n "${PROJ_ENV_VARS}" ]; then
-    #   echo -e "${YC} >>> Found env variables, injecting them...${NC}"
-    #   echo "PROJ_ENV_VARS=${PROJ_ENV_VARS}-"
-    # fi
+    if [ -n "${proj_env_vars}" ]; then
+      echo -e "${YC} >>> Found env variables, injecting them...${NC}"
+      ENV_VARS_STR_DOCKER_PARAM="$( echo "${proj_env_vars[@]}" | tr '\n' '&' | sed -E 's/^/\&/g' | sed -e 's/&$//g' -e 's/&/ -e /g' )"
+    fi
 }
 
 run_host_hook() {
@@ -273,53 +274,99 @@ function get_yaml_value {
     [ -z "${config_path}" ] && config_path="${i}" || config_path="${config_path}${separator}${i}"
   done
 
-  local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @|tr @ '\034')
-  # shorter version from https://stackoverflow.com/a/21189044
+  local k='[a-zA-Z0-9_]' # key name pattern
+  local s='[[:space:]]*' fs=$(echo @|tr @ '\034')
+  # normalise config. It's a shorter version from https://stackoverflow.com/a/21189044
   sed -ne "s|^\($s\):|\1|" \
-      -e "s|^\($s\)\($w\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
-      -e "s|^\($s\)\($w\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p"  $1 |
+      -e "s|^\($s\)\($k*\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
+      -e "s|^\($s\)\($k*\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" $1 |
   # compose list of variables like parent1_parent2_target="target value" ("_" is a separator local variable)
   awk -F$fs '{
       indent = length($1)/2;
       vname[indent] = $2;
       for (i in vname) { if (i > indent) { delete vname[i]; idx[i]=0 } };
       if (length($2) == 0) { vname[indent]= ++idx[indent] };
-      if (length($3) > 0) {
+      
+      # process value and compose the line
+      val=$3
+      if (length(val) > 0) {
          vn=""; for (i=0; i<indent; i++) { vn=(vn)(vname[i])("'${separator}'")}
-         printf("%s%s%s=\"%s\"\n", "'${prefix:+${prefix}${separator}}'", vn, vname[indent], $3);
+         
+         # for lists normalise separation (wrapping should be controlled by user itself, commas are not allowed inside the list elements!!!)
+         if (val ~ /\[.*\]/) {
+            gsub(/[[:blank:]+]?,[[:blank:]+]?/, ",", val);
+         }
+         # for other values - wrap them
+         else {
+            val = "\"" val "\""
+         }
+         # compose the line
+         printf("%s%s%s=%s\n", "'${prefix:+${prefix}${separator}}'", vn, vname[indent], val);
       }
    }' |\
   # filter using pattern
   # Starting from Terra Compose v1.4 it compares config path strictly (before it was prefix search)
-  grep -E "${config_path}(\||=)" | \
-  # fetch string value or list values
+  grep -E "${config_path}(${separator}|=)" | \
+  # fetch value (string / list / map)
   {
-    local result
-    declare -a config_results=()
-    while read line; do config_results+=("${line}"); done
-
-    # list value
-    if [[ "${#config_results[*]}" -gt 1 ]]; then
-      local config_values=''
-      for i in "${config_results[@]}"; do
-        CONFIG_KEY="$( echo "${i}" | sed -E 's/^'"${config_path}${separator}"'(.*)=.*$/\1/g' )"
-        # validate key should be like ${config_path}${separator}<number>
-        if ! [[ ${CONFIG_KEY} =~ ^[0-9]+$ ]]; then
-          echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains non-supported value (string or list)"
-          exit 1
-        fi
-        # collect value
-        if [ -z "${config_values}" ]; then
-          config_values="$( echo "${i}" | sed -E 's/^.*"(.*)".*$/\1/g' )"
+    local trim_temp="" count_total=0
+    declare -a config_results_single=()
+    declare -a config_results_list=()
+    declare -a config_results_map=()
+    while read line; do
+        # cut-off searched config_path and collect rest
+        trim_temp="${line#*${config_path}}"
+        # remove prefixed separator
+        trim_temp="${trim_temp:1}"
+        # collect list values
+        if [[ "${trim_temp}" =~ ^\".*\"$ ]]; then
+            config_results_single+=("${trim_temp}")
+        # collect list values
+        elif [[ "${trim_temp}" =~ ^\[.*\]$ ]]; then
+            config_results_list+=("${trim_temp}")
+        # collect map values (assuming it's the same map)
         else
-          config_values="${config_values}"$'\n'"$( echo "${i}" | sed -E 's/^.*"(.*)".*$/\1/g' )"
+            config_results_map+=("${trim_temp}")
         fi
-      done
-      result="${config_values}"
+    done
 
+    ### validation: general rule is that we are looking for a single value (except maps)
+    nl=$'\n'
+    # mix of single, list and map values are not allowed
+    if \
+        # single + smth else OR list + smth else
+        ([ "${#config_results_single[*]}" -gt 0 ] && ([ "${#config_results_list[*]}" -gt 0 ] || [ "${#config_results_map[*]}" -gt 0 ])) || \
+        ([ "${#config_results_list[*]}" -gt 0 ] && ([ "${#config_results_single[*]}" -gt 0 ] || [ "${#config_results_map[*]}" -gt 0 ])); \
+    then
+        echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains mixed set of values (single, list, map), which is not allowed!" > /dev/stderr
+        echo -e "${RC}Singles:${NC} '${YC}${config_results_single[@]}${NC}'" > /dev/stderr
+        echo -e "${RC}Lists:${NC} '${YC}${config_results_list[@]}${NC}'" > /dev/stderr
+        echo -e "${RC}Maps:${NC} '${YC}${config_results_map[@]}${NC}'" > /dev/stderr
+        exit 1
+    # a single value or a list should be exact one
+    elif ([ "${#config_results_single[*]}" -gt 1 ] || [ "${#config_results_list[*]}" -gt 1 ]); then
+        echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains more than one entry of a single value config or a list config, which is not allowed!" > /dev/stderr
+        echo -e "${RC}Singles:${NC} '${YC}${config_results_single[@]}${NC}'" > /dev/stderr
+        echo -e "${RC}Lists:${NC} '${YC}${config_results_list[@]}${NC}'" > /dev/stderr
+        exit 1
+    # only flat maps are allowed
+    elif ([ "${#config_results_map[*]}" -gt 1 ] && [[ "${config_results_map[@]}" =~ (^|$nl).+\&.+=\".*($|$nl) ]]); then
+        echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains map having more than one layer values. Only flat maps are allowed!" > /dev/stderr
+        echo -e "${RC}Maps:${NC} '${YC}${config_results_map[@]}${NC}'" > /dev/stderr
+        exit 1
+    fi
+
+    ### processing
+    local result
     # single value
-    else
-      result=$( echo "${config_results[@]}" | sed -E 's/^.*"(.*)".*$/\1/g' )
+    if [ "${#config_results_single[*]}" -gt 0 ]; then
+        result=$( echo "${config_results_single[@]}" | sed -E 's/^.*"(.*)".*$/\1/g' ) # unwrap the quotes
+    # list value
+    elif [ "${#config_results_list[*]}" -gt 0 ]; then
+        result=$( echo "${config_results_list[@]}" | sed -E 's/^\[|\]$//g' | tr ',' '\n' ) # remove opening/closing brackets and convert to multi-line string. No operations with quotes!!!
+    # map value
+    elif [ "${#config_results_map[*]}" -gt 0 ]; then        
+        result="$( echo "${config_results_map[@]}" | tr ' ' '\n' )" # convert to multi-line string. All should be already quoted on previous iterations!!!
     fi
 
     echo "${result}"

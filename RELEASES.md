@@ -21,7 +21,8 @@
 - fixed alias config parsing: prefix search for the configurations was replaced by exact match with more stable separator. Means, more stable alias config search
 - added customisation for env files: customisable filename and filepath (`env_vars_file_name` and `env_vars_file` keys on both alias and default levels)
 - enabled env file per project in aliases config
-
+- rewrote yaml processor for the aliases config: added lists and maps parsing
+- added env vars maps injection to the runtime container
 
 # TODOs
 
@@ -40,7 +41,6 @@
 - ADD multiple tfvars, to be able to include local !!!
 
 - ADD consuming params from the command arguments - `terraform apply -var current=v2`
-- ADD to alias config `env: TF_VAR_env2=test`
 - ADD script that replaces env vars with placeholders inside code (to be used as dynamic module sourcing for example, e.g. `module-prep`)
 
 - ADD customisation for aliases files (system-wise TC config + fallback to project one, customisable name for aliases file)

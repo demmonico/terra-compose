@@ -99,6 +99,9 @@ aliases:
     tfversion: "x.x.x"                  # [optional, from the default section will be used if omitted]
     env_vars_file_name: "my-env"        # [optional, from the default section will be used if omitted] filename of the env vars to be injected in container runtime. Key `env_vars_file` has priority over `env_vars_file_name`
     env_vars_file: "/path/to/my-env"    # [optional, from the default section will be used if omitted] filepath of the env vars to be injected in container runtime. Key `env_vars_file` has priority over `env_vars_file_name`
+    env:                                # [optional] map of the env vars to be injected in container runtime
+      key1: value
+      key2: value
     hooks:                              # [optional, scripts or commands to run before/after TF init or action in any combination]
       before_tf_init:       "run any bash script or command on host"
       after_tf_init:        "run any bash script or command on host"
