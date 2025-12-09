@@ -318,7 +318,7 @@ function get_yaml_value {
         trim_temp="${line#*${config_path}}"
         # remove prefixed separator
         trim_temp="${trim_temp:1}"
-        # collect list values
+        # collect single values
         if [[ "${trim_temp}" =~ ^\".*\"$ ]]; then
             config_results_single+=("${trim_temp}")
         # collect list values
@@ -363,10 +363,10 @@ function get_yaml_value {
         result=$( echo "${config_results_single[@]}" | sed -E 's/^.*"(.*)".*$/\1/g' ) # unwrap the quotes
     # list value
     elif [ "${#config_results_list[*]}" -gt 0 ]; then
-        result=$( echo "${config_results_list[@]}" | sed -E 's/^\[|\]$//g' | tr ',' '\n' ) # remove opening/closing brackets and convert to multi-line string. No operations with quotes!!!
+        result=$( echo "${config_results_list[@]}" | sed -E 's/^\[|\]$//g' | tr ',' '\n' | sed 's/"//g' ) # remove opening/closing brackets, convert to multi-line string and unwrap the quotes
     # map value
     elif [ "${#config_results_map[*]}" -gt 0 ]; then        
-        result="$( echo "${config_results_map[@]}" | tr ' ' '\n' )" # convert to multi-line string. All should be already quoted on previous iterations!!!
+        result="$( echo "${config_results_map[@]}" | tr ' ' '\n' | sed 's/"//g' )" # convert to multi-line string and unwrap the quotes
     fi
 
     echo "${result}"
