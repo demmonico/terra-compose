@@ -81,8 +81,6 @@ init_project() {
     local tf_proj_version="$( get_config 'tfversion' )"
     TF_VERSION="${tf_proj_version:-${tf_default_version}}"
 
-    PROJ_BACKEND_CONFIG="$( get_config 'backend_config' )"
-
     ### env vars file
     # env vars file
     local default_env_vars_file="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'env_vars_file' )"
@@ -169,11 +167,22 @@ run_docker() {
 run_tf_init() {
     run_host_hook 'before_tf_init'
 
-    local backend_config="${PROJ_BACKEND_CONFIG:+"-backend-config=\"${PROJ_BACKEND_CONFIG}\""}"
+    local backend_config="$( get_config 'backend_config' )"
+    local result='' override_file=''
+    if [ -n "${backend_config}" ]; then
+        for file in ${backend_config[@]}; do
+            result="${result} -backend-config=${file}"
+            # lookup for an override files, adding it when exists
+            override_file="$( get_override_file "${file}" )"
+            [[ -f "${PROJ_DIR}/${override_file}" ]] && result="${result} -backend-config=${override_file}"
+        done
+    fi
+    local backend_config_param="${result}"
+    
     cd "${PROJ_DIR}" && \
         echo -e "Project dir is ${YC}${PROJ_DIR}${NC} and we are currently right here!" && echo "" && \
-        echo -e "${YC} >>> Running TF init${PROJ_BACKEND_CONFIG:+" using '${backend_config}'"} ...${NC}" && \
-        run_docker terraform init ${backend_config}
+        echo -e "${YC} >>> Running ${RC}terraform init ${backend_config_param}${YC} ...${NC}" && \
+        run_docker terraform init ${backend_config_param}
 
     run_host_hook 'after_tf_init'
 }
@@ -249,14 +258,14 @@ prepare_tfvars_params() {
         fi
     }
 
-    local result='' filename=''
+    local result='' file='' override_file=''
     echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}" >&2
 
     # no pre-configured tfvars
     if [ -z "${PROJ_TFVAR}" ]; then
-        echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}" >&2
-        filename="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
-        result="-var-file=${filename}"
+        echo -e "${YC} >>> No TFVARS files was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS filename${NC}" >&2
+        file="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
+        result="-var-file=${file}"
     
     # pre-configured to skip tfvars
     elif [ "${PROJ_TFVAR}" = "${_SKIP_VALUE}" ]; then
@@ -265,12 +274,12 @@ prepare_tfvars_params() {
     
     # pre-configured tfvars, can be a list
     else
-        echo -e "${YC} >>> TFVARS filename '${RC}$( echo ${PROJ_TFVAR[@]} | tr ' ' ', ' )${YC}' was found in alias config${NC}" >&2
+        echo -e "${YC} >>> TFVARS file(s) '${RC}$( echo ${PROJ_TFVAR[@]} | tr ' ' ', ' )${YC}' found in alias config${NC}" >&2
         for i in ${PROJ_TFVAR[@]}; do
-            filename="$( normalize_filename ${i} )"
-            result="${result} -var-file=${filename}"
+            file="$( normalize_filename ${i} )"
+            result="${result} -var-file=${file}"
             # lookup for an override files, adding it when exists
-            override_file="$( get_override_file "${filename}" )"
+            override_file="$( get_override_file "${file}" )"
             [[ -f "${PROJ_DIR}/${override_file}" ]] && result="${result} -var-file=${override_file}"
         done
     fi
@@ -301,7 +310,7 @@ is_debug_action_mode() {
 get_override_file() {
     local file="$1"
     local suffix="$( get_sys_config '.override' 'config' 'override_file_suffix' )"
-    echo "${filename}" | sed -E "s/^(.*)(\.[[:alnum:]]+)$/\1${suffix}\2/g"
+    echo "${file}" | sed -E "s/^(.*)(\.[[:alnum:]]+)$/\1${suffix}\2/g"
 }
 
 get_human_time_since_file_modified() {

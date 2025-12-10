@@ -124,6 +124,7 @@ aliases:
     env:                                # [optional] map of the env vars to be injected in container runtime
       key1: value
       key2: value
+    backend_config: "my.tfbackend"      # [optional]
     hooks:                              # [optional, scripts or commands to run before/after TF init or action in any combination]
       before_tf_init:       "run any bash script or command on host"
       after_tf_init:        "run any bash script or command on host"
@@ -140,6 +141,22 @@ aliases:
 - when omitted workspace name will be used
 - can be explicitely forced to skip (using `config -> skip_value` from system configuration or `-` by default)
 - unless explicitely forced to skip, will ask interactively to set the tfvars file name during execution
+- override files can be used. See (this section)[#override-files].
+
+##### backend_config
+
+- can be string or list. When list then order matters for Terraform
+- it can be a Terraform backend config entity either a path to the file containing backend config. Terraform will internally merge them together
+- override files can be used. See (this section)[#override-files].
+
+#### Override files
+
+Override files are files that can be auto-wired and implicitely attached in addition to already existing ones to enable using config files, that non-tracked by VCS. 
+
+Naming pattern for override files is `<optional_path>/<filename>.<override_suffix>.<ext>`. 
+For example, for tfvars file `staging.tfvars`, that was properly configured in alias config, override one will be `staging.override.tfvars`. In such case, Terra Compose will automatically check if such file exists and attach it to the Terraform command run together with original file. So, `terraform plan -var-file=staging.tfvars -var-file=staging.override.tfvars`.
+
+By default, suffix `.override` will be used, however it can be changed in the system configuration setting `config -> override_file_suffix`.
 
 
 ### Example

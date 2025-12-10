@@ -16,7 +16,7 @@
 - renamed host-based hooks; added container-based hook `before_container_run`
 - improved functions and local vars naming
 
-### v1.4 [DRAFT]
+### v2.0-rc1
 - enabled http backends by adding ability to skip workspace selection in aliases config
 - fixed alias config parsing: prefix search for the configurations was replaced by exact match with more stable separator. Means, more stable alias config search
 - added customisation for env files: customisable filename and filepath (`env_vars_file_name` and `env_vars_file` keys on both alias and default levels)
@@ -26,7 +26,9 @@
 - added env var `ALIAS_CONFIG` to override aliases config location (by default file `$(PWD).tc.yaml` will be looked for)
 - added optional system config file, located by default in `~/.tc.yaml` (changable via env var `SYSTEM_CONFIG`). It works as a meta-config for some of the config values (at the moment only alias config location and skip value, and app verbosity level are supported)
 - added multiple tfvars files support
-- added override tfvars files support (they are auto-wired, thus coulb be omitted by VCS)
+- added override tfvars files support (they are auto-wired, thus could be omitted by VCS)
+- added multiple `backend-config` params support
+- added override `backend-config` files support (they are auto-wired, thus could be omitted by VCS)
 
 # TODOs
 
