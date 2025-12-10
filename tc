@@ -264,6 +264,11 @@ is_debug_VERBOSITY_MODE() {
     [[ "${VERBOSITY_MODE}" -le "${VERBOSITY_DEBUG_MODE}" ]]
 }
 
+# TODO ADD a separate debug flag
+is_debug_action_mode() {
+    echo "${ACTION}" | grep 'debug' > /dev/null
+}
+
 get_human_time_since_file_modified() {
     local file=$1
     local time=$(( $(date +%s) - $(stat -f%c "${file}") ))
@@ -489,14 +494,25 @@ case "${ACTION}" in
         print_workspaces
         exit;;
     
-    'plan')
-        run_tf_init
+    # TODO ADD a separate debug flag
+    'plan'|'plan-debug')
+        # TF init
+        if is_debug_action_mode; then
+            echo -e "${YC} >>> Running in ${RC}DEBUG${YC} mode (without init backend, format check and validation)!${NC}"
+            echo -e "\n------------------------------------------------------------------------\n"
+        else
+            run_tf_init
+        fi
+        
+        # TF select workspace
         select_workspace
 
         # TF validation
-        echo -e "${YC} >>> Checking format and validating TF templates ... ${NC}"
-        run_docker terraform fmt --check=true -recursive -diff
-        run_docker terraform validate
+        if ! is_debug_action_mode; then
+            echo -e "${YC} >>> Checking format and validating TF templates ... ${NC}"
+            run_docker terraform fmt --check=true -recursive -diff
+            run_docker terraform validate
+        fi
 
         # TF tfvars
         echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}"
@@ -525,42 +541,17 @@ case "${ACTION}" in
         echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
-    # TODO re-use plan action
-    'plan-debug')
-        echo -e "${YC} >>> Running in ${RC}DEBUG${YC} mode (without init backend, format check and validation)!${NC}"
-        echo -e "\n------------------------------------------------------------------------\n"
-
-        select_workspace
-
-        # TF tfvars
-        echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}"
-        if [ -z "${PROJ_TFVAR}" ]; then
-            # no pre-configured tfvars
-            echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
-            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
-            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
-        elif [ "${PROJ_TFVAR}" = "${_SKIP_VALUE}" ]; then
-            # pre-configured to skip tfvars
-            echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}"
-            TFVARS_FILENAME="${_SKIP_VALUE}"
-            TFVARS_COMMAND_PARAM=""
+    # TODO ADD a separate debug flag
+    'apply'|'apply-debug')
+        # TF init
+        if is_debug_action_mode; then
+            echo -e "${YC} >>> Running in ${RC}DEBUG${YC} mode (without init backend, format check and validation)!${NC}"
+            echo -e "\n------------------------------------------------------------------------\n"
         else
-            # pre-configured tfvars
-            echo -e "${YC} >>> TFVARS filename '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}"
-            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${PROJ_TFVAR}" )"
-            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
+            run_tf_init
         fi
-
-        # TF plan
-        echo -e "\n------------------------------------------------------------------------\n"
-        echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}"
-        echo -e "\n------------------------------------------------------------------------\n"
-        run_docker terraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
-        echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
-        exit;;
-
-    'apply')
-        run_tf_init
+        
+        # TF select workspace
         select_workspace
 
         # check TF plan
@@ -575,53 +566,18 @@ case "${ACTION}" in
         echo -e "${YC} >>> ${NC}File ${YC}${TF_PLAN_FILE}${NC} was modified ${YC}$( get_human_time_since_file_modified "${TF_PLAN_FILE}" ) ago${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
         
-        read -p "Are you sure that you want to apply ${CURRENT_WORKSPACE}? To approve print 'yes': " APPLY_APPROVE
-        if [ ! "${APPLY_APPROVE}" = 'yes' ]; then
-            echo -e "${YC} >>> Exiting ... ${NC}\n"
-            exit 0
-        fi
+        echo -e "This action is going to run ${YC}terreform apply${NC} at the ${YC}${CURRENT_WORKSPACE}${NC} workspace"
+        ask_for_approve
 
         run_docker terraform apply ${TF_PLAN_FILENAME}
-        rm ${TF_PLAN_FILE}
-
         echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"
-        echo -e "${YC} >>> ${NC}Plan ${YC}${TF_PLAN_FILE}${NC} has been ${RC}removed${NC}\n"
-        exit;;
 
-    # TODO re-use apply action
-    'apply-debug')
-        echo -e "${YC} >>> Running in ${RC}DEBUG${YC} mode (without init backend, format check and validation)!${NC}"
-        echo -e "\n------------------------------------------------------------------------\n"
-
-        select_workspace
-
-        # check TF plan
-        if [ ! -f "${TF_PLAN_FILE}" ]; then
-            echo -e "${RC}Error${NC}: TF plan file ${YC}${TF_PLAN_FILE}${NC} does not exists. \nPlease build TF plan first"
-            exit 10
-        fi
-
-        # TF apply
-        echo -e "\n------------------------------------------------------------------------\n"
-        echo -e "${YC} >>> Applying TF plan:${NC} ${RC}${TF_PLAN_FILENAME}${NC} / alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
-        echo -e "${YC} >>> ${NC}File ${YC}${TF_PLAN_FILE}${NC} was modified ${YC}$( get_human_time_since_file_modified "${TF_PLAN_FILE}" ) ago${NC}"
-        echo -e "\n------------------------------------------------------------------------\n"
-
-        read -p "Are you sure that you want to apply ${CURRENT_WORKSPACE}? To approve print 'yes': " APPLY_APPROVE
-        if [ ! "${APPLY_APPROVE}" = 'yes' ]; then
-            echo -e "${YC} >>> Exiting ... ${NC}\n"
-            exit 0
-        fi
-
-        run_docker terraform apply ${TF_PLAN_FILENAME}
         rm ${TF_PLAN_FILE}
-
-        echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"
         echo -e "${YC} >>> ${NC}Plan ${YC}${TF_PLAN_FILE}${NC} has been ${RC}removed${NC}\n"
         exit;;
 
     *)
-        echo -e "${RC}Error:${NC} ooops, catch all for invalid action ${ACTION}"
+        echo -e "${RC}Error:${NC} Ooops, catch all for invalid action ${ACTION}"
         exit 1;;
 esac
 
