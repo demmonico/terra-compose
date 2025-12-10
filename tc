@@ -89,7 +89,7 @@ init_project() {
     local proj_env_vars_file="$( get_config 'env_vars_file' )"
     local env_vars_file="${proj_env_vars_file:-${default_env_vars_file}}"
     if [ -z "${env_vars_file}" ]; then
-        echo -e "${YC} >>> Didn't found env file param, searching for env file name...${NC}"
+        echo -e "${YC} >>> Didn't found env file param in config, searching for env filename param...${NC}"
         # env vars filename
         local default_env_vars_file_name="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'env_vars_file_name' )"
         local proj_env_vars_file_name="$( get_config 'env_vars_file_name' )"
@@ -252,6 +252,14 @@ ask_when_no_tfvars_file() {
 #-----------------------------------------------------------#
 # Helpers
 
+ask_for_approve() {
+    read -p "Are you sure to proceed? To approve print 'yes': " APPLY_APPROVE
+    if [ ! "${APPLY_APPROVE}" = 'yes' ]; then
+        echo -e "${YC} >>> Got no approve. Exiting ... ${NC}\n" >&2
+        exit 0
+    fi
+}
+
 is_debug_VERBOSITY_MODE() {
     [[ "${VERBOSITY_MODE}" -le "${VERBOSITY_DEBUG_MODE}" ]]
 }
@@ -351,21 +359,21 @@ get_yaml_value() {
         ([ "${#config_results_single[*]}" -gt 0 ] && ([ "${#config_results_list[*]}" -gt 0 ] || [ "${#config_results_map[*]}" -gt 0 ])) || \
         ([ "${#config_results_list[*]}" -gt 0 ] && ([ "${#config_results_single[*]}" -gt 0 ] || [ "${#config_results_map[*]}" -gt 0 ])); \
     then
-        echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains mixed set of values (single, list, map), which is not allowed!" > /dev/stderr
-        echo -e "${RC}Singles:${NC} '${YC}${config_results_single[@]}${NC}'" > /dev/stderr
-        echo -e "${RC}Lists:${NC} '${YC}${config_results_list[@]}${NC}'" > /dev/stderr
-        echo -e "${RC}Maps:${NC} '${YC}${config_results_map[@]}${NC}'" > /dev/stderr
+        echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains mixed set of values (single, list, map), which is not allowed!" >&2
+        echo -e "${RC}Singles:${NC} '${YC}${config_results_single[@]}${NC}'" >&2
+        echo -e "${RC}Lists:${NC} '${YC}${config_results_list[@]}${NC}'" >&2
+        echo -e "${RC}Maps:${NC} '${YC}${config_results_map[@]}${NC}'" >&2
         exit 1
     # a single value or a list should be exact one
     elif ([ "${#config_results_single[*]}" -gt 1 ] || [ "${#config_results_list[*]}" -gt 1 ]); then
-        echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains more than one entry of a single value config or a list config, which is not allowed!" > /dev/stderr
-        echo -e "${RC}Singles:${NC} '${YC}${config_results_single[@]}${NC}'" > /dev/stderr
-        echo -e "${RC}Lists:${NC} '${YC}${config_results_list[@]}${NC}'" > /dev/stderr
+        echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains more than one entry of a single value config or a list config, which is not allowed!" >&2
+        echo -e "${RC}Singles:${NC} '${YC}${config_results_single[@]}${NC}'" >&2
+        echo -e "${RC}Lists:${NC} '${YC}${config_results_list[@]}${NC}'" >&2
         exit 1
     # only flat maps are allowed
     elif ([ "${#config_results_map[*]}" -gt 1 ] && [[ "${config_results_map[@]}" =~ (^|$nl).+\&.+=\".*($|$nl) ]]); then
-        echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains map having more than one layer values. Only flat maps are allowed!" > /dev/stderr
-        echo -e "${RC}Maps:${NC} '${YC}${config_results_map[@]}${NC}'" > /dev/stderr
+        echo -e "${RC}Error:${NC} config path '${YC}${config_path}${NC}' contains map having more than one layer values. Only flat maps are allowed!" >&2
+        echo -e "${RC}Maps:${NC} '${YC}${config_results_map[@]}${NC}'" >&2
         exit 1
     fi
 
@@ -388,7 +396,7 @@ get_yaml_value() {
 
 get_config() {
     if [ ! -f "${ALIAS_CONFIG}" ]; then
-        echo -e "${RC}Error${NC}: No config files were found! ALIAS_CONFIG='${ALIAS_CONFIG}'" > /dev/stderr
+        echo -e "${RC}Error${NC}: No config files were found! ALIAS_CONFIG='${ALIAS_CONFIG}'" >&2
         exit 1
     fi
 
@@ -457,28 +465,20 @@ run_host_hook 'before_all'
 
 # TF action
 case "${ACTION}" in
-    # use the latest workspace
+    # uses the latest workspace. TODO
     'run')
         echo -e "${YC} >>> Running custom command ${RC}${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
-        read -p "Are you sure to proceed? To approve print 'yes': " APPLY_APPROVE
-        if [ ! "${APPLY_APPROVE}" = 'yes' ]; then
-            echo -e "${YC} >>> Exiting ... ${NC}\n"
-            exit 0
-        fi
+        ask_for_approve
 
         run_docker ${@:3}
         exit;;
 
-    # use the latest workspace
+    # uses the latest workspace. TODO
     'shell')
-        echo -e "${YC} >>> Shelling into the ${RC}${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
+        echo -e "${YC} >>> Shelling into the runtime container at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
-        read -p "Are you sure to proceed? To approve print 'yes': " APPLY_APPROVE
-        if [ ! "${APPLY_APPROVE}" = 'yes' ]; then
-            echo -e "${YC} >>> Exiting ... ${NC}\n"
-            exit 0
-        fi
+        ask_for_approve
 
         run_docker
         exit;;
