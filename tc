@@ -224,7 +224,7 @@ select_workspace() {
     run_docker terraform workspace select ${CURRENT_WORKSPACE}
 }
 
-ask_when_no_tfvars_file() {
+prepare_tfvars_params() {
     function normalize_filename() {
         local filename=$1
         if [[ "${filename}" = *.tfvars ]] || [[ "${filename}" = *.tfvars.json ]] || [[ "${filename}" = *.tfvars.hcl ]]; then
@@ -233,20 +233,49 @@ ask_when_no_tfvars_file() {
             echo "${filename}.tfvars"
         fi
     }
+    function ask_when_no_tfvars_file() {
+        local filename="$( normalize_filename "$1" )"
+        local file="${PROJ_DIR}/${filename}"
 
-    local filename="$( normalize_filename "$1" )"
-    local file="${PROJ_DIR}/${filename}"
+        if [ -f "${file}" ]; then
+            echo "${filename}"
+        else
+            echo -e "Oops, file ${RC}${filename}${NC} was not found at ${YC}${PROJ_DIR}${NC} folder!" >&2
+            echo -e "There are ${YC}*.tfvars${NC} files:" >&2
+            eval "ls ${PROJ_DIR} | grep --color '.tfvars'" >&2
 
-    if [ -f "${file}" ]; then
-        echo "${filename}"
+            read -p "Please input filename (with or without .tfvars extension) which one you want to work with: " filename
+            echo "$( ask_when_no_tfvars_file "${filename}" )"
+        fi
+    }
+
+    local result='' filename=''
+    echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}" >&2
+
+    # no pre-configured tfvars
+    if [ -z "${PROJ_TFVAR}" ]; then
+        echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}" >&2
+        filename="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
+        result="-var-file=${filename}"
+    
+    # pre-configured to skip tfvars
+    elif [ "${PROJ_TFVAR}" = "${_SKIP_VALUE}" ]; then
+        echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}" >&2
+        result=""
+    
+    # pre-configured tfvars, can be a list
     else
-        echo -e "Oops, file ${RC}${filename}${NC} was not found at ${YC}${PROJ_DIR}${NC} folder!" >&2
-        echo -e "There are ${YC}*.tfvars${NC} files:" >&2
-        eval "ls ${PROJ_DIR} | grep --color '.tfvars'" >&2
-
-        read -p "Please input filename (with or without .tfvars extension) which one you want to work with: " filename
-        echo "$( ask_when_no_tfvars_file "${filename}" )"
+        echo -e "${YC} >>> TFVARS filename '${RC}$( echo ${PROJ_TFVAR[@]} | tr ' ' ', ' )${YC}' was found in alias config${NC}" >&2
+        for i in ${PROJ_TFVAR[@]}; do
+            filename="$( normalize_filename ${i} )"
+            result="${result} -var-file=${filename}"
+            # lookup for an override files, adding it when exists
+            override_file="$( get_override_file "${filename}" )"
+            [[ -f "${PROJ_DIR}/${override_file}" ]] && result="${result} -var-file=${override_file}"
+        done
     fi
+
+    echo "${result}"
 }
 
 #-----------------------------------------------------------#
@@ -267,6 +296,12 @@ is_debug_VERBOSITY_MODE() {
 # TODO ADD a separate debug flag
 is_debug_action_mode() {
     echo "${ACTION}" | grep 'debug' > /dev/null
+}
+
+get_override_file() {
+    local file="$1"
+    local suffix="$( get_sys_config '.override' 'config' 'override_file_suffix' )"
+    echo "${filename}" | sed -E "s/^(.*)(\.[[:alnum:]]+)$/\1${suffix}\2/g"
 }
 
 get_human_time_since_file_modified() {
@@ -515,30 +550,14 @@ case "${ACTION}" in
         fi
 
         # TF tfvars
-        echo -e "${YC} >>> Searching for ${RC}tfvars${YC} file ... ${NC}"
-        if [ -z "${PROJ_TFVAR}" ]; then
-            # no pre-configured tfvars
-            echo -e "${YC} >>> No TFVARS filename was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS name${NC}"
-            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
-            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
-        elif [ "${PROJ_TFVAR}" = "${_SKIP_VALUE}" ]; then
-            # pre-configured to skip tfvars
-            echo -e "${YC} >>> Skipping TFVARS because '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}"
-            TFVARS_FILENAME="${_SKIP_VALUE}"
-            TFVARS_COMMAND_PARAM=""
-        else
-            # pre-configured tfvars
-            echo -e "${YC} >>> TFVARS filename '${RC}${PROJ_TFVAR}${YC}' was found in alias config${NC}"
-            TFVARS_FILENAME="$( ask_when_no_tfvars_file "${PROJ_TFVAR}" )"
-            TFVARS_COMMAND_PARAM="-var-file=${TFVARS_FILENAME}"
-        fi
+        TFVARS_COMMAND_PARAM="$( prepare_tfvars_params )"
 
         # TF plan
         echo -e "\n------------------------------------------------------------------------\n"
-        echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}"
+        echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
         run_docker terraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
-        echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_FILENAME}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
+        echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
     # TODO ADD a separate debug flag

@@ -69,12 +69,13 @@ Was tested in Terraform versions `>= 0.14`, but `<= 1.6`.
 **Is NOT compatible** with Terraform versions `< 0.14` due to the breaking changes in Terraform CLI arguments
 
 
-## System  Configuration
+## System Configuration
 
 Optional system config file supported, located by default in `~/.tc.yaml` (changable via env var `SYSTEM_CONFIG`). 
 It works as a meta-config for some of the config values. At the moment supported only:
 - alias config location (`config -> file`)
 - skip value (`config -> skip_value`)
+- override file suffix (`config -> override_file_suffix`)
 - app verbosity level (`app -> verbosity`)
 
 ### Example
@@ -86,6 +87,7 @@ app:
 config: 
   file: tc.yaml
   skip_value: "-"
+  override_file_suffix: .override
 ```
 
 ## Aliases Configuration
@@ -115,7 +117,7 @@ aliases:
   alias_name:                           # [allowed only A-Za-z0-9_ symbols, SHOULD BE UNIQUE]
     path: "path/to/project/base/dir"    # [required]
     workspace: "live"                   # [optional, "default" will be used if exists and no more choice OR ask]
-    tfvars: "nonprod"                   # [optional, workspace name will be used if skip OR ask, could be "-" for skipping tfvars attaching]
+    tfvars: "nonprod"                   # [optional]
     tfversion: "x.x.x"                  # [optional, from the default section will be used if omitted]
     env_vars_file_name: "my-env"        # [optional, from the default section will be used if omitted] filename of the env vars to be injected in container runtime. Key `env_vars_file` has priority over `env_vars_file_name`
     env_vars_file: "/path/to/my-env"    # [optional, from the default section will be used if omitted] filepath of the env vars to be injected in container runtime. Key `env_vars_file` has priority over `env_vars_file_name`
@@ -129,6 +131,16 @@ aliases:
       after_all:            "run any bash script or command on host"
       before_container_run: "run any bash script or command in container"
 ```
+
+#### Aliases configuration sections
+
+##### tfvars
+
+- can be string or list. When list then order matters for Terraform
+- when omitted workspace name will be used
+- can be explicitely forced to skip (using `config -> skip_value` from system configuration or `-` by default)
+- unless explicitely forced to skip, will ask interactively to set the tfvars file name during execution
+
 
 ### Example
 

@@ -21,10 +21,12 @@
 - fixed alias config parsing: prefix search for the configurations was replaced by exact match with more stable separator. Means, more stable alias config search
 - added customisation for env files: customisable filename and filepath (`env_vars_file_name` and `env_vars_file` keys on both alias and default levels)
 - enabled env file per project in aliases config
-- rewrote yaml processor for the aliases config: added lists and maps parsing
+- rewritten yaml processor for the aliases config: added lists and maps parsing
 - added env vars maps injection to the runtime container
 - added env var `ALIAS_CONFIG` to override aliases config location (by default file `$(PWD).tc.yaml` will be looked for)
 - added optional system config file, located by default in `~/.tc.yaml` (changable via env var `SYSTEM_CONFIG`). It works as a meta-config for some of the config values (at the moment only alias config location and skip value, and app verbosity level are supported)
+- added multiple tfvars files support
+- added override tfvars files support (they are auto-wired, thus coulb be omitted by VCS)
 
 # TODOs
 
@@ -40,7 +42,6 @@
 ### Config and Env vars flexibility
 
 - ADD tofu support (configurable runtime) !!!
-- ADD multiple tfvars, to be able to include local !!!
 
 - ADD merging default and alias configs logic
 - ADD consuming params from the command arguments - `terraform apply -var current=v2`
