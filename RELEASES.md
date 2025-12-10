@@ -23,6 +23,8 @@
 - enabled env file per project in aliases config
 - rewrote yaml processor for the aliases config: added lists and maps parsing
 - added env vars maps injection to the runtime container
+- added env var `ALIAS_CONFIG` to override aliases config location (by default file `$(PWD).tc.yaml` will be looked for)
+- added optional system config file, located by default in `~/.tc.yaml` (changable via env var `SYSTEM_CONFIG`). It works as a meta-config for some of the config values (at the moment only alias config location and skip value, and app verbosity level are supported)
 
 # TODOs
 
@@ -40,11 +42,9 @@
 - ADD tofu support (configurable runtime) !!!
 - ADD multiple tfvars, to be able to include local !!!
 
+- ADD merging default and alias configs logic
 - ADD consuming params from the command arguments - `terraform apply -var current=v2`
 - ADD script that replaces env vars with placeholders inside code (to be used as dynamic module sourcing for example, e.g. `module-prep`)
-
-- ADD customisation for aliases files (system-wise TC config + fallback to project one, customisable name for aliases file)
-- ADD support for multiple alias configs, to be able to include local ones
 
 - ADD configuring workspace during the call. Maybe withing split alias onto project and env - `./tc run runner_STG destroy -var-file=nonprod.tfvars -target=module.privileged_gitlab_runner_cluster`
 

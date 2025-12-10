@@ -27,31 +27,34 @@ FORMAT: <SCRIPT_NAME> <ACTION> <ALIAS>
 
 EOF
 
+#-----------------------------------------------------------#
+# Init
+
 set -e
 
 RC='\033[0;31m'
 YC='\033[0;33m'
 NC='\033[0m' # No Color
 
-VERBOSE_DEBUG_MODE=0
-VERBOSE_INFO_MODE=1
-VERBOSE_ERROR_MODE=5
-VERBOSE_MODE="${VERBOSE_INFO_MODE}" # default
-
 _DIR="$(pwd)"
 BASE_DIR="${_DIR}"
-CONFIG_YAML_FILE="${_DIR}/aliases.yaml"
-TF_PLAN_FILENAME='plan.tfplan'
-_SKIP_VALUE="-"
 
-HELP_STRING="${HELP_STRING}$( echo -e "\n\nList of available aliases from ${YC}${CONFIG_YAML_FILE}${NC}:\n>>>>>"; cat ${CONFIG_YAML_FILE} | grep -v -E "^$|^\s*\#"; echo "<<<<<" )"
+init_app() {
+    ALIAS_CONFIG="${ALIAS_CONFIG:-$( get_sys_config "${BASE_DIR}/tc.yaml" 'config' 'file' )}"
+    HELP_STRING="${HELP_STRING}$( echo -e "\n\nList of available aliases from ${YC}${ALIAS_CONFIG}${NC}:\n>>>>>"; get_config; echo "<<<<<" )"
 
-is_debug_verbose_mode() {
-    [[ "${VERBOSE_MODE}" -le "${VERBOSE_DEBUG_MODE}" ]]
+    VERBOSITY_DEBUG_MODE=0
+    VERBOSITY_INFO_MODE=1
+    VERBOSITY_ERROR_MODE=5
+    VERBOSITY_MODE="${VERBOSITY:-$( get_sys_config "${VERBOSITY_INFO_MODE}" 'app' 'verbosity' )}"
+
+    TF_PLAN_FILENAME='plan.tfplan'
+    _SKIP_VALUE="$( get_sys_config '-' 'config' 'skip_value' )"
 }
 
-init() {
-    local proj_subpath="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'path' )"
+
+init_project() {
+    local proj_subpath="$( get_config 'path' )"
     if [ -z "${proj_subpath}" ]; then
         echo -e "${RC}Error${NC}: no path was found for alias ${YC}${ALIAS}${NC}"
         exit 2
@@ -69,27 +72,27 @@ init() {
         exit 5
     fi
 
-    PROJ_WORKSPACE="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'workspace' )"
-    PROJ_TFVAR="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfvars' )"
+    PROJ_WORKSPACE="$( get_config 'workspace' )"
+    PROJ_TFVAR="$( get_config 'tfvars' )"
 
     TF_PLAN_FILE="${PROJ_DIR}/${TF_PLAN_FILENAME}"
 
-    local tf_default_version="$( get_yaml_value ${CONFIG_YAML_FILE} 'default' 'tfversion' )"
-    local tf_proj_version="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'tfversion' )"
+    local tf_default_version="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'tfversion' )"
+    local tf_proj_version="$( get_config 'tfversion' )"
     TF_VERSION="${tf_proj_version:-${tf_default_version}}"
 
-    PROJ_BACKEND_CONFIG="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'backend_config' )"
+    PROJ_BACKEND_CONFIG="$( get_config 'backend_config' )"
 
     ### env vars file
     # env vars file
-    local default_env_vars_file="$( get_yaml_value ${CONFIG_YAML_FILE} 'default' 'env_vars_file' )"
-    local proj_env_vars_file="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'env_vars_file' )"
+    local default_env_vars_file="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'env_vars_file' )"
+    local proj_env_vars_file="$( get_config 'env_vars_file' )"
     local env_vars_file="${proj_env_vars_file:-${default_env_vars_file}}"
     if [ -z "${env_vars_file}" ]; then
         echo -e "${YC} >>> Didn't found env file param, searching for env file name...${NC}"
         # env vars filename
-        local default_env_vars_file_name="$( get_yaml_value ${CONFIG_YAML_FILE} 'default' 'env_vars_file_name' )"
-        local proj_env_vars_file_name="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'env_vars_file_name' )"
+        local default_env_vars_file_name="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'env_vars_file_name' )"
+        local proj_env_vars_file_name="$( get_config 'env_vars_file_name' )"
         local env_vars_file_name="${proj_env_vars_file_name:-${default_env_vars_file_name:-.env}}"
         env_vars_file="${BASE_DIR}/${env_vars_file_name}"
     fi
@@ -102,7 +105,7 @@ init() {
     fi
 
     ### env vars str
-    local proj_env_vars="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'env' )"
+    local proj_env_vars="$( get_config 'env' )"
     ENV_VARS_STR_DOCKER_PARAM=''
     if [ -n "${proj_env_vars}" ]; then
       echo -e "${YC} >>> Found env variables, injecting them...${NC}"
@@ -112,7 +115,7 @@ init() {
 
 run_host_hook() {
     local hook_name=$1
-    local hook_cmd="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${hook_name}" )"
+    local hook_cmd="$( get_config 'hooks' "${hook_name}" )"
     if [ -n "${hook_cmd}" ]; then
         echo -e "${YC} >>> Running host hook ${RC}${hook_name}${YC} ... ${NC}"
         bash -c "${hook_cmd}"
@@ -122,7 +125,7 @@ run_host_hook() {
 
 prepare_container_hook() {
     local hook_name=$1
-    local hook_cmd="$( get_yaml_value ${CONFIG_YAML_FILE} 'aliases' "${ALIAS}" 'hooks' "${hook_name}" )"
+    local hook_cmd="$( get_config 'hooks' "${hook_name}" )"
     if [ -n "${hook_cmd}" ]; then
         echo "${hook_cmd} && "
     fi
@@ -131,7 +134,7 @@ prepare_container_hook() {
 run_docker() {
     local cmd=$@
 
-    if is_debug_verbose_mode; then
+    if is_debug_VERBOSITY_MODE; then
         echo -e "${YC} >>> Command: ${RC}"
         # prevent to expand the color on the subshell when spinning up the interactive shell
         if [ -z "${cmd}" ]; then
@@ -153,12 +156,15 @@ run_docker() {
         hashicorp/terraform:${TF_VERSION} \
         ${cmd:+-c} ${cmd:+"$( prepare_container_hook 'before_container_run' )${cmd}"}
 
-    { if is_debug_verbose_mode; then
+    { if is_debug_VERBOSITY_MODE; then
         set +x;
         echo -e "${NC}"
     fi } 2>/dev/null
 
 }
+
+#-----------------------------------------------------------#
+# Terraform
 
 run_tf_init() {
     run_host_hook 'before_tf_init'
@@ -243,6 +249,13 @@ ask_when_no_tfvars_file() {
     fi
 }
 
+#-----------------------------------------------------------#
+# Helpers
+
+is_debug_VERBOSITY_MODE() {
+    [[ "${VERBOSITY_MODE}" -le "${VERBOSITY_DEBUG_MODE}" ]]
+}
+
 get_human_time_since_file_modified() {
     local file=$1
     local time=$(( $(date +%s) - $(stat -f%c "${file}") ))
@@ -260,14 +273,14 @@ get_human_time_since_file_modified() {
 # See @package: https://github.com/demmonico/bash-parse-yaml
 # get config value from yaml config
 # format: get_yaml_value YAML_FILE_NAME parent1 patent2 ... config_key_name
-function get_yaml_value {
+get_yaml_value() {
   if [ "$#" -lt 2 ]; then
     echo -e "${RC}Error:${NC} too few arguments at '${YC}get_yaml_value${NC}'"
     exit 1
   fi
 
   # Starting from Terra Compose v1.4 internally "&" used as a config levels separator
-  local separator='&' prefix='' CONFIG_YAML_FILE=$1
+  local separator='&' prefix='' ALIAS_CONFIG=$1
 
   local config_path="${prefix}"
   for i in "${@:2}"; do
@@ -306,7 +319,7 @@ function get_yaml_value {
    }' |\
   # filter using pattern
   # Starting from Terra Compose v1.4 it compares config path strictly (before it was prefix search)
-  grep -E "${config_path}(${separator}|=)" | \
+  grep -E "^${config_path}(${separator}|=)" | \
   # fetch value (string / list / map)
   {
     local trim_temp="" count_total=0
@@ -373,7 +386,42 @@ function get_yaml_value {
   }
 }
 
+get_config() {
+    if [ ! -f "${ALIAS_CONFIG}" ]; then
+        echo -e "${RC}Error${NC}: No config files were found! ALIAS_CONFIG='${ALIAS_CONFIG}'" > /dev/stderr
+        exit 1
+    fi
+
+    local args=$@ result=''
+    # normal flow, searching for the config
+    if [ -n "${args}" ]; then
+        result="$( get_yaml_value ${ALIAS_CONFIG} 'aliases' "${ALIAS}" $@ )"
+    # get all
+    else
+        result="$( cat ${ALIAS_CONFIG} | grep -v -E "^$|^\s*\#" )"
+    fi
+    
+    echo "${result}"
+}
+
+get_sys_config() {
+    local default=$1
+    local config="${SYSTEM_CONFIG:-$HOME/.tc.yaml}"
+    local args=${@:2}
+    local result=''
+    if [ -f "${config}" ]; then
+        result="$( get_yaml_value ${config} $args )"
+    fi
+    if [ -z "${result}" ] && [ -n "${default}" ]; then
+        result="${default}"
+    fi
+    echo "${result}"
+}
+
 #-----------------------------------------------------------#
+# Main
+
+init_app
 
 ACTION=$1
 case "${ACTION}" in
@@ -399,7 +447,7 @@ if [ -z "${ALIAS}" ]; then
     exit 1
 fi
 
-init
+init_project
 
 #-----------------------------------------------------------#
 ##### Main

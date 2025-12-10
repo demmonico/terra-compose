@@ -69,10 +69,30 @@ Was tested in Terraform versions `>= 0.14`, but `<= 1.6`.
 **Is NOT compatible** with Terraform versions `< 0.14` due to the breaking changes in Terraform CLI arguments
 
 
-## Configuration
+## System  Configuration
+
+Optional system config file supported, located by default in `~/.tc.yaml` (changable via env var `SYSTEM_CONFIG`). 
+It works as a meta-config for some of the config values. At the moment supported only:
+- alias config location (`config -> file`)
+- skip value (`config -> skip_value`)
+- app verbosity level (`app -> verbosity`)
+
+### Example
+
+```yaml
+app:
+  verbosity: 5
+
+config: 
+  file: tc.yaml
+  skip_value: "-"
+```
+
+## Aliases Configuration
 
 Each projects, that you want to use `Terra Compose` with, should be presented in `Terra Compose`'s configuration file. 
-Thus, in the root folder of the project, create file `aliases.yaml`. For details, see next sections 
+Thus, in the root folder of the project, create file `aliases.yaml`. Besides that, environment variable `ALIAS_CONFIG` can be used to override aliases config location.
+For details, see next sections 
 
 ### Default settings
 
