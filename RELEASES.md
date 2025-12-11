@@ -39,7 +39,8 @@
 
 ### AWS access
 
-- ADD handling AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY env vars within the AWS_PROFILE/AWS_DEFAULT_PROFILE
+- ADD handling AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN env vars within the AWS_PROFILE/AWS_DEFAULT_PROFILE
+- ADD ability to disable that check, since creds might be provided directly in provider's config omitting env vars
 
 ### Config and Env vars flexibility
 
