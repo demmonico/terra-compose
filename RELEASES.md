@@ -16,7 +16,7 @@
 - renamed host-based hooks; added container-based hook `before_container_run`
 - improved functions and local vars naming
 
-### v2.0-rc1
+### v2.0-alpha
 - enabled http backends by adding ability to skip workspace selection in aliases config
 - fixed alias config parsing: prefix search for the configurations was replaced by exact match with more stable separator. Means, more stable alias config search
 - added customisation for env files: customisable filename and filepath (`env_vars_file_name` and `env_vars_file` keys on both alias and default levels)
