@@ -29,6 +29,7 @@
 - added override tfvars files support (they are auto-wired, thus could be omitted by VCS)
 - added multiple `backend-config` params support
 - added override `backend-config` files support (they are auto-wired, thus could be omitted by VCS)
+- added multiple IaaC tools (OpenTofu) support via parsing system and aliases configs for `tftool` and `tfimage` values (default is still Terraform)
 
 # TODOs
 
@@ -43,8 +44,6 @@
 - ADD ability to disable that check, since creds might be provided directly in provider's config omitting env vars
 
 ### Config and Env vars flexibility
-
-- ADD tofu support (configurable runtime) !!!
 
 - ADD merging default and alias configs logic
 - ADD consuming params from the command arguments - `terraform apply -var current=v2`

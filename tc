@@ -18,9 +18,9 @@ FORMAT: <SCRIPT_NAME> <ACTION> <ALIAS>
     - apply         - apply TF plan, also available with `-debug` suffix
                       (debug mode will skip init, format check and validation steps)
     - workspaces    - equal to `workspace list`
-    - run           - proxy all arguments directly to `terraform`. 
+    - run           - proxy all arguments directly to runtime (`Terraform` or `OpenTofu`). 
                       Allows running any custom command
-    - shell         - run a shell inside the terraform docker container.
+    - shell         - run a shell inside the container runtime.
                       Allows running any custom commands inside
     - help          - this help information
 <ALIAS>  - a unique shortcut to project/environment pair, like `runner_prod`.
@@ -77,11 +77,24 @@ init_project() {
 
     TF_PLAN_FILE="${PROJ_DIR}/${TF_PLAN_FILENAME}"
 
+    # TF Tool selection: alias specific -> alias default -> system config -> terraform
+    local tf_default_tool="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'tftool' )"
+    local tf_proj_tool="$( get_config 'tftool' )"
+    TF_TOOL="${tf_proj_tool:-${tf_default_tool}}"
+    TF_TOOL="${TF_TOOL:-$( get_sys_config 'terraform' 'tool' 'tftool' )}"
+
+    # alias specific -> alias default -> system config -> hashicorp/terraform
+    local tf_default_image="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'tfimage' )"
+    local tf_proj_image="$( get_config 'tfimage' )"
+    TF_IMAGE="${tf_proj_image:-${tf_default_image}}"
+    TF_IMAGE="${TF_IMAGE:-$( get_sys_config 'hashicorp/terraform' 'tool' 'tfimage' )}"
+
     local tf_default_version="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'tfversion' )"
     local tf_proj_version="$( get_config 'tfversion' )"
     TF_VERSION="${tf_proj_version:-${tf_default_version}}"
 
-    ### env vars file
+    ### env vars
+
     # env vars file
     local default_env_vars_file="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'env_vars_file' )"
     local proj_env_vars_file="$( get_config 'env_vars_file' )"
@@ -102,7 +115,7 @@ init_project() {
       echo -e "${YC} >>> Didn't found env file '${env_vars_file}', skipping it...${NC}"
     fi
 
-    ### env vars str
+    # env vars str
     local proj_env_vars="$( get_config 'env' )"
     ENV_VARS_STR_DOCKER_PARAM=''
     if [ -n "${proj_env_vars}" ]; then
@@ -151,7 +164,7 @@ run_docker() {
         ${ENV_VARS_STR_DOCKER_PARAM} \
         -w=${PROJ_DIR} \
         --entrypoint /bin/sh \
-        hashicorp/terraform:${TF_VERSION} \
+        ${TF_IMAGE}:${TF_VERSION} \
         ${cmd:+-c} ${cmd:+"$( prepare_container_hook 'before_container_run' )${cmd}"}
 
     { if is_debug_VERBOSITY_MODE; then
@@ -181,8 +194,8 @@ run_tf_init() {
     
     cd "${PROJ_DIR}" && \
         echo -e "Project dir is ${YC}${PROJ_DIR}${NC} and we are currently right here!" && echo "" && \
-        echo -e "${YC} >>> Running ${RC}terraform init ${backend_config_param}${YC} ...${NC}" && \
-        run_docker terraform init ${backend_config_param}
+        echo -e "${YC} >>> Running ${RC}${TF_TOOL} init ${backend_config_param}${YC} ...${NC}" && \
+        run_docker ${TF_TOOL} init ${backend_config_param}
 
     run_host_hook 'after_tf_init'
 }
@@ -196,7 +209,7 @@ ask_input_workspace() {
 }
 
 run_tf_workspace_list() {
-    run_docker terraform workspace list
+    run_docker ${TF_TOOL} workspace list
 }
 
 print_workspaces() {
@@ -230,7 +243,7 @@ select_workspace() {
     fi
 
     echo -e "${YC} >>> Selecting TF workspace ${RC}${CURRENT_WORKSPACE}${YC} ... ${NC}"
-    run_docker terraform workspace select ${CURRENT_WORKSPACE}
+    run_docker ${TF_TOOL} workspace select ${CURRENT_WORKSPACE}
 }
 
 prepare_tfvars_params() {
@@ -554,8 +567,8 @@ case "${ACTION}" in
         # TF validation
         if ! is_debug_action_mode; then
             echo -e "${YC} >>> Checking format and validating TF templates ... ${NC}"
-            run_docker terraform fmt --check=true -recursive -diff
-            run_docker terraform validate
+            run_docker ${TF_TOOL} fmt --check=true -recursive -diff
+            run_docker ${TF_TOOL} validate
         fi
 
         # TF tfvars
@@ -565,7 +578,7 @@ case "${ACTION}" in
         echo -e "\n------------------------------------------------------------------------\n"
         echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
-        run_docker terraform plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
+        run_docker ${TF_TOOL} plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
         echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
@@ -597,7 +610,7 @@ case "${ACTION}" in
         echo -e "This action is going to run ${YC}terreform apply${NC} at the ${YC}${CURRENT_WORKSPACE}${NC} workspace"
         ask_for_approve
 
-        run_docker terraform apply ${TF_PLAN_FILENAME}
+        run_docker ${TF_TOOL} apply ${TF_PLAN_FILENAME}
         echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"
 
         rm ${TF_PLAN_FILE}

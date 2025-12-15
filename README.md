@@ -63,11 +63,18 @@ Was tested in the following OS environments:
 
 **Note**: it wasn't tested in other OS. Feel free to create a MR to add installation details for other environments.
 
-#### Terraform versions
+#### IaaC versions
+
+##### Terraform versions
 
 Was tested in Terraform versions `>= 0.14`, but `<= 1.6`.
 **Is NOT compatible** with Terraform versions `< 0.14` due to the breaking changes in Terraform CLI arguments
 
+##### Other IaaC tool versions
+
+Since `v2.0.0-alpha` version multiple IaaC tool support was added. Now it's achievable via system or aliases configs (looking for `tftool` and `tfimage` values). Terraform considered as a default tool.
+
+Was tested on OpenTofu `v1.11.1`.
 
 ## System Configuration
 
@@ -77,6 +84,8 @@ It works as a meta-config for some of the config values. At the moment supported
 - skip value (`config -> skip_value`)
 - override file suffix (`config -> override_file_suffix`)
 - app verbosity level (`app -> verbosity`)
+- IaaC tool name (`tool -> tftool`)
+- IaaC tool image (`tool -> tfimage`)
 
 ### Example
 
@@ -88,6 +97,10 @@ config:
   file: tc.yaml
   skip_value: "-"
   override_file_suffix: .override
+
+tool:
+  tftool: tofu
+  tfimage: ghcr.io/opentofu/opentofu
 ```
 
 ## Aliases Configuration
@@ -116,9 +129,11 @@ They are configured in the file `aliases.yaml` at the root folder of the project
 aliases:
   alias_name:                           # [allowed only A-Za-z0-9_ symbols, SHOULD BE UNIQUE]
     path: "path/to/project/base/dir"    # [required]
+    tftool: tofu                        # [optional]
+    tfimage: ghcr.io/opentofu/opentofu  # [optional]
+    tfversion: "x.x.x"                  # [optional, from the default section will be used if omitted]
     workspace: "live"                   # [optional, "default" will be used if exists and no more choice OR ask]
     tfvars: "nonprod"                   # [optional]
-    tfversion: "x.x.x"                  # [optional, from the default section will be used if omitted]
     env_vars_file_name: "my-env"        # [optional, from the default section will be used if omitted] filename of the env vars to be injected in container runtime. Key `env_vars_file` has priority over `env_vars_file_name`
     env_vars_file: "/path/to/my-env"    # [optional, from the default section will be used if omitted] filepath of the env vars to be injected in container runtime. Key `env_vars_file` has priority over `env_vars_file_name`
     env:                                # [optional] map of the env vars to be injected in container runtime
@@ -134,6 +149,18 @@ aliases:
 ```
 
 #### Aliases configuration sections
+
+##### tftool
+
+- can be string only
+- tune scripts to use specified IaaC tool (instead of Terraform by default)
+- priority (from high to low): `alias specific` -> `alias default` -> `system config` -> `terraform`
+
+##### tfimage
+
+- can be string only
+- tune scripts to use specified IaaC tool container image (instead of Terraform by default)
+- priority (from high to low): `alias specific` -> `alias default` -> `system config` -> `hashicorp/terraform`
 
 ##### tfvars
 
