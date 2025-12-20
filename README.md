@@ -40,6 +40,8 @@ The tool should work well with any cloud providers, but **was tested ONLY with A
 
 #### AWS credentials setup
 
+##### AWS credentials setup: Profile (recommended)
+
 - get `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` env vars for your user with sufficient privileges from the AWS Console
 - configure AWS CLI (see [docs](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) for details):
   ```shell
@@ -49,6 +51,15 @@ The tool should work well with any cloud providers, but **was tested ONLY with A
 - export the selected AWS profile in your current shell (works with both `AWS_DEFAULT_PROFILE` and `AWS_PROFILE`)
   ```shell
   $ export AWS_PROFILE=<YOUR_AWS_PROFILE_NAME>
+  ```
+
+##### AWS credentials setup: Access Key (simple)
+
+- get `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` env vars for your user with sufficient privileges from the AWS Console
+- export them in your current shell
+  ```shell
+  $ export AWS_ACCESS_KEY_ID=<YOUR_AWS_ACCESS_KEY_ID>
+  $ export AWS_SECRET_ACCESS_KEY=<YOUR_AWS_SECRET_ACCESS_KEY>
   ```
 
 ### Tested
@@ -84,6 +95,7 @@ It works as a meta-config for some of the config values. At the moment supported
 - skip value (`config -> skip_value`)
 - override file suffix (`config -> override_file_suffix`)
 - app verbosity level (`app -> verbosity`)
+- app init AWS check flag (`app -> init_aws_check`)
 - IaaC tool name (`tool -> tftool`)
 - IaaC tool image (`tool -> tfimage`)
 
@@ -92,6 +104,7 @@ It works as a meta-config for some of the config values. At the moment supported
 ```yaml
 app:
   verbosity: 5
+  init_aws_check: 0
 
 config: 
   file: tc.yaml

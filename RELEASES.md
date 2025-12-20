@@ -17,7 +17,14 @@
 - improved functions and local vars naming
 
 ### v2.0-alpha
+
+Core functionality /Terraform:
 - enabled http backends by adding ability to skip workspace selection in aliases config
+- added multiple IaaC tools (OpenTofu) support via parsing system and aliases configs for `tftool` and `tfimage` values (default is still Terraform)
+- added handling `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` env vars alongside the `AWS_PROFILE/AWS_DEFAULT_PROFILE`
+- added ability to disable that check, since creds might be provided directly in provider's config omitting env vars. Plus, AWS might be not used at all...
+
+Config/Customisation:
 - fixed alias config parsing: prefix search for the configurations was replaced by exact match with more stable separator. Means, more stable alias config search
 - added customisation for env files: customisable filename and filepath (`env_vars_file_name` and `env_vars_file` keys on both alias and default levels)
 - enabled env file per project in aliases config
@@ -29,7 +36,7 @@
 - added override tfvars files support (they are auto-wired, thus could be omitted by VCS)
 - added multiple `backend-config` params support
 - added override `backend-config` files support (they are auto-wired, thus could be omitted by VCS)
-- added multiple IaaC tools (OpenTofu) support via parsing system and aliases configs for `tftool` and `tfimage` values (default is still Terraform)
+
 
 # TODOs
 
@@ -37,11 +44,6 @@
 - FIX `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace
 
 ## Features
-
-### AWS access
-
-- ADD handling AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and AWS_SESSION_TOKEN env vars within the AWS_PROFILE/AWS_DEFAULT_PROFILE
-- ADD ability to disable that check, since creds might be provided directly in provider's config omitting env vars
 
 ### Config and Env vars flexibility
 

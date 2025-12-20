@@ -65,11 +65,15 @@ init_project() {
         exit 2
     fi
 
-    # check AWS access
+    # AWS access
     AWS_PROFILE="${AWS_PROFILE:-"${AWS_DEFAULT_PROFILE}"}"
-    if [ -z "${AWS_PROFILE}" ]; then
-        echo -e "${RC}Error${NC}: env var AWS_PROFILE/AWS_DEFAULT_PROFILE is empty. It's required to have one of them, pointing to the actual AWS profile (`~/.aws/credentials`)"
-        exit 5
+    local tc_check_aws_access="$( get_sys_config '1' 'app' 'init_aws_check' )"
+    if (( "${tc_check_aws_access}" )); then # if check was not disabled
+        # check AWS access env vars
+        if [ -z "${AWS_PROFILE}" ] && [ -z "${AWS_ACCESS_KEY_ID}" ] && [ -z "${AWS_SECRET_ACCESS_KEY}" ]; then
+            echo -e "${RC}Error${NC}: env var AWS_PROFILE/AWS_DEFAULT_PROFILE or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY are empty. It's required to have either AWS access key set up or profile env vars, pointing to the actual AWS profile ('~/.aws/credentials')"
+            exit 5
+        fi
     fi
 
     PROJ_WORKSPACE="$( get_config 'workspace' )"
