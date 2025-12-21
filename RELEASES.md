@@ -23,7 +23,6 @@ Core functionality /Terraform:
 - added multiple IaaC tools (OpenTofu) support via parsing system and aliases configs for `tftool` and `tfimage` values (default is still Terraform)
 - added handling `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` env vars alongside the `AWS_PROFILE/AWS_DEFAULT_PROFILE`
 - added ability to disable that check, since creds might be provided directly in provider's config omitting env vars. Plus, AWS might be not used at all...
-- added an easy way to proxy for destroy and other commands or options. After `--` arg all will be passed to the respective runtime command
 
 Config/Customisation:
 - fixed alias config parsing: prefix search for the configurations was replaced by exact match with more stable separator. Means, more stable alias config search
@@ -37,6 +36,14 @@ Config/Customisation:
 - added override tfvars files support (they are auto-wired, thus could be omitted by VCS)
 - added multiple `backend-config` params support
 - added override `backend-config` files support (they are auto-wired, thus could be omitted by VCS)
+
+### v2.0-beta
+
+Core functionality /Terraform:
+- added an easy way to proxy for destroy and other commands or options. After `--` arg all will be passed to the respective runtime command
+- removed support `plan-debug` and `apply-debug` actions in favour of usage `plan` and `apply` actions with new `-q|--quick` flag
+
+Config/Customisation:
 - added consuming params from the command arguments - `terraform apply -var current=v2`. It was unlocked by passing all arguments after `--` arg to the respective runtime command
 
 

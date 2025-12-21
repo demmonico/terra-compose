@@ -10,20 +10,21 @@ Help information
 -----------------------------------------------------------
 TerraCompose is a tool aimed to help to run Terraform commands in Docker and protect you against changes wrongly.
 
-FORMAT: <SCRIPT_NAME> <ACTION> <ALIAS> [-- any following param -or --option will be passed as-is]
+FORMAT: tc <ACTION> <ALIAS> [<OPTIONS|FLAGS>] [-- any args -or --options will be passed as-is]
 
-<ACTION> - TF action you want to run:
-    - plan          - build TF plan, also available with `-debug` suffix
-                      (debug mode will skip init, format check and validation steps)
-    - apply         - apply TF plan, also available with `-debug` suffix
-                      (debug mode will skip init, format check and validation steps)
+<ACTION> - TerraCompose action you want to run with your IaaC tool (`Terraform` or `OpenTofu`):
+    - plan          - build IaaC tool plan
+    - apply         - apply IaaC tool plan
     - workspaces    - equal to `workspace list`
-    - run           - proxy all arguments directly to runtime (`Terraform` or `OpenTofu`). 
+    - run           - proxy all arguments directly to IaaC tool. 
                       Allows running any custom command
     - shell         - run a shell inside the container runtime.
                       Allows running any custom commands inside
     - help          - this help information
-<ALIAS>  - a unique shortcut to project/environment pair, like `runner_prod`.
+<ALIAS>  - a unique shortcut to project/environment pair, like `runner_prod`
+
+<OPTIONS|FLAGS> - Following are available:
+    -q|--quick      - quick mode flag, skipping init and validation and format checks.
 
 EOF
 
@@ -182,6 +183,13 @@ run_docker() {
 # Terraform
 
 run_tf_init() {
+    # skip when quick mode is enabled
+    if is_quick_mode; then
+        echo -e "${YC} >>> Running in ${RC}QUICK${YC} mode (skipping init backend, format check and validation)!${NC}"
+        echo -e "\n------------------------------------------------------------------------\n"
+        return
+    fi
+
     run_host_hook 'before_tf_init'
 
     local backend_config="$( get_config 'backend_config' )"
@@ -319,9 +327,8 @@ is_debug_VERBOSITY_MODE() {
     [[ "${VERBOSITY_MODE}" -le "${VERBOSITY_DEBUG_MODE}" ]]
 }
 
-# TODO ADD a separate debug flag
-is_debug_action_mode() {
-    echo "${TC_ACTION}" | grep 'debug' > /dev/null
+is_quick_mode() {
+    (( "${TC_QUICK_MODE}" ))
 }
 
 get_override_file() {
@@ -501,7 +508,7 @@ init_app
 
 TC_ACTION=$1
 case "${TC_ACTION}" in
-    'plan' | 'plan-debug' | 'apply' | 'apply-debug' | 'workspaces' | 'run' | 'shell' )
+    'plan' | 'apply' | 'workspaces' | 'run' | 'shell' )
         ;;
     'help')
         echo "${HELP_STRING}"
@@ -537,7 +544,7 @@ while [[ $# -gt 0 ]]; do
   fi
   # otherwise process args
   case $key in
-    -q|--quick)     # quick mode, skipping init and validation and format checks
+    -q|--quick)     # quick mode flag, skipping init and validation and format checks
       TC_QUICK_MODE='1'
       ;;
 
@@ -585,21 +592,15 @@ case "${TC_ACTION}" in
         print_workspaces
         exit;;
     
-    # TODO ADD a separate debug flag
-    'plan'|'plan-debug')
+    'plan')
         # TF init
-        if is_debug_action_mode; then
-            echo -e "${YC} >>> Running in ${RC}DEBUG${YC} mode (without init backend, format check and validation)!${NC}"
-            echo -e "\n------------------------------------------------------------------------\n"
-        else
-            run_tf_init
-        fi
+        run_tf_init
         
         # TF select workspace
         select_workspace
 
         # TF validation
-        if ! is_debug_action_mode; then
+        if ! is_quick_mode; then
             echo -e "${YC} >>> Checking format and validating TF templates ... ${NC}"
             run_docker ${TF_TOOL} fmt --check=true -recursive -diff
             run_docker ${TF_TOOL} validate
@@ -616,15 +617,9 @@ case "${TC_ACTION}" in
         echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
-    # TODO ADD a separate debug flag
-    'apply'|'apply-debug')
+    'apply')
         # TF init
-        if is_debug_action_mode; then
-            echo -e "${YC} >>> Running in ${RC}DEBUG${YC} mode (without init backend, format check and validation)!${NC}"
-            echo -e "\n------------------------------------------------------------------------\n"
-        else
-            run_tf_init
-        fi
+        run_tf_init
         
         # TF select workspace
         select_workspace
