@@ -89,11 +89,12 @@ Was tested on OpenTofu `v1.11.1`.
 
 Optional system config file supported, located by default in `~/.tc.yaml` (changable via env var `SYSTEM_CONFIG`). 
 It works as a meta-config for some of the config values. At the moment supported only:
+- app verbosity level (`app -> verbosity`)
+- app init AWS check flag (`app -> init_aws_check`)
+- app auto approve optional ask flag (`app -> auto_approve_optional`)
 - alias config location (`config -> file`)
 - skip value (`config -> skip_value`)
 - override file suffix (`config -> override_file_suffix`)
-- app verbosity level (`app -> verbosity`)
-- app init AWS check flag (`app -> init_aws_check`)
 - IaaC tool name (`tool -> tftool`)
 - IaaC tool image (`tool -> tfimage`)
 
@@ -103,6 +104,7 @@ It works as a meta-config for some of the config values. At the moment supported
 app:
   verbosity: 5
   init_aws_check: 0
+  auto_approve_optional: 1
 
 config: 
   file: tc.yaml
