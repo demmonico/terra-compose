@@ -10,7 +10,7 @@ Help information
 -----------------------------------------------------------
 TerraCompose is a tool aimed to help to run Terraform commands in Docker and protect you against changes wrongly.
 
-FORMAT: <SCRIPT_NAME> <ACTION> <ALIAS>
+FORMAT: <SCRIPT_NAME> <ACTION> <ALIAS> [-- any following param -or --option will be passed as-is]
 
 <ACTION> - TF action you want to run:
     - plan          - build TF plan, also available with `-debug` suffix
@@ -56,12 +56,12 @@ init_app() {
 init_project() {
     local proj_subpath="$( get_config 'path' )"
     if [ -z "${proj_subpath}" ]; then
-        echo -e "${RC}Error${NC}: no path was found for alias ${YC}${ALIAS}${NC}"
+        echo -e "${RC}Error${NC}: no path was found for alias ${YC}${TC_ALIAS}${NC}"
         exit 2
     fi
     PROJ_DIR="${BASE_DIR}/${proj_subpath}"
     if [ -z "${PROJ_DIR}" ] || [ ! -d "${PROJ_DIR}" ]; then
-        echo -e "${RC}Error${NC}: empty project DIR or was found for alias ${YC}${ALIAS}${NC}"
+        echo -e "${RC}Error${NC}: empty project DIR or was found for alias ${YC}${TC_ALIAS}${NC}"
         exit 2
     fi
 
@@ -321,7 +321,7 @@ is_debug_VERBOSITY_MODE() {
 
 # TODO ADD a separate debug flag
 is_debug_action_mode() {
-    echo "${ACTION}" | grep 'debug' > /dev/null
+    echo "${TC_ACTION}" | grep 'debug' > /dev/null
 }
 
 get_override_file() {
@@ -469,7 +469,7 @@ get_config() {
     local args=$@ result=''
     # normal flow, searching for the config
     if [ -n "${args}" ]; then
-        result="$( get_yaml_value ${ALIAS_CONFIG} 'aliases' "${ALIAS}" $@ )"
+        result="$( get_yaml_value ${ALIAS_CONFIG} 'aliases' "${TC_ALIAS}" $@ )"
     # get all
     else
         result="$( cat ${ALIAS_CONFIG} | grep -v -E "^$|^\s*\#" )"
@@ -497,8 +497,10 @@ get_sys_config() {
 
 init_app
 
-ACTION=$1
-case "${ACTION}" in
+# ----- read params ----- #
+
+TC_ACTION=$1
+case "${TC_ACTION}" in
     'plan' | 'plan-debug' | 'apply' | 'apply-debug' | 'workspaces' | 'run' | 'shell' )
         ;;
     'help')
@@ -509,17 +511,45 @@ case "${ACTION}" in
         echo "${HELP_STRING}"
         exit 1;;
     *)
-        echo -e "${RC}Error:${NC} invalid action ${ACTION}"
+        echo -e "${RC}Error:${NC} invalid action '${TC_ACTION}'"
         echo "${HELP_STRING}"
         exit 1;;
 esac
+shift
 
-ALIAS=$2
-if [ -z "${ALIAS}" ]; then
+TC_ALIAS=$1
+if [ -z "${TC_ALIAS}" ]; then
     echo -e "${RC}Error${NC}: ALIAS param is required"
     echo -e "${HELP_STRING}"
     exit 1
 fi
+shift
+
+TC_QUICK_MODE='0'
+TC_PASS_ARGS=
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  # pass rest args to the internal runtime
+  if [ "$key" == "--" ]; then
+    shift
+    TC_PASS_ARGS=$@
+    break
+  fi
+  # otherwise process args
+  case $key in
+    -q|--quick)     # quick mode, skipping init and validation and format checks
+      TC_QUICK_MODE='1'
+      ;;
+
+    *)
+      echo -e "${RC}Error:${NC} invalid param '$1'"
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+# ----------------------- #
 
 init_project
 
@@ -530,23 +560,23 @@ init_project
 run_host_hook 'before_all'
 
 # TF action
-case "${ACTION}" in
+case "${TC_ACTION}" in
     # uses the latest workspace. TODO
     'run')
-        echo -e "${YC} >>> Running custom command ${RC}${@:3}${NC} at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
+        echo -e "${YC} >>> Running custom command ${RC}${TC_PASS_ARGS}${NC} at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
         ask_for_approve
 
-        run_docker ${@:3}
+        run_docker ${TF_TOOL} ${TC_PASS_ARGS}
         exit;;
 
     # uses the latest workspace. TODO
     'shell')
-        echo -e "${YC} >>> Shelling into the runtime container at the alias ${YC}${ALIAS} (${PROJ_DIR})${NC}."
+        echo -e "${YC} >>> Shelling into the runtime container at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
         ask_for_approve
 
-        run_docker
+        run_docker ${TC_PASS_ARGS}
         exit;;
 
     'workspaces')
@@ -580,10 +610,10 @@ case "${ACTION}" in
 
         # TF plan
         echo -e "\n------------------------------------------------------------------------\n"
-        echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}"
+        echo -e "${YC} >>> Building TF plan:${NC} alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
-        run_docker ${TF_TOOL} plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME}
-        echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
+        run_docker ${TF_TOOL} plan ${TFVARS_COMMAND_PARAM} -out=${TF_PLAN_FILENAME} ${TC_PASS_ARGS}
+        echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
     # TODO ADD a separate debug flag
@@ -607,7 +637,7 @@ case "${ACTION}" in
 
         # TF apply
         echo -e "\n------------------------------------------------------------------------\n"
-        echo -e "${YC} >>> Applying TF plan:${NC} ${RC}${TF_PLAN_FILENAME}${NC} / alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
+        echo -e "${YC} >>> Applying TF plan:${NC} ${RC}${TF_PLAN_FILENAME}${NC} / alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
         echo -e "${YC} >>> ${NC}File ${YC}${TF_PLAN_FILE}${NC} was modified ${YC}$( get_human_time_since_file_modified "${TF_PLAN_FILE}" ) ago${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
         
@@ -615,14 +645,16 @@ case "${ACTION}" in
         ask_for_approve
 
         run_docker ${TF_TOOL} apply ${TF_PLAN_FILENAME}
-        echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"
+        # enable passed args ONLY for non-preapproved apply, when it will be done
+        # run_docker ${TF_TOOL} apply ${TF_PLAN_FILENAME} ${TC_PASS_ARGS}
+        echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"
 
         rm ${TF_PLAN_FILE}
         echo -e "${YC} >>> ${NC}Plan ${YC}${TF_PLAN_FILE}${NC} has been ${RC}removed${NC}\n"
         exit;;
 
     *)
-        echo -e "${RC}Error:${NC} Ooops, catch all for invalid action ${ACTION}"
+        echo -e "${RC}Error:${NC} Ooops, catch all for invalid action '${TC_ACTION}'"
         exit 1;;
 esac
 
