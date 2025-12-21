@@ -44,6 +44,7 @@ Core functionality /Terraform:
 - removed support `plan-debug` and `apply-debug` actions in favour of usage `plan` and `apply` actions with new `-q|--quick` flag
 - renamed `run` -> `tf` and `shell` -> `exec` actions
 - added `-a|--auto-approve` CLI flag, allowing to auto-approve asks in optional places (all except apply)
+- added `init` action, allowing to make a standalone init your IaaC tool at the given folder
 
 Config/Customisation:
 - added consuming params from the command arguments - `terraform apply -var current=v2`. It was unlocked by passing all arguments after `--` arg to the respective runtime command

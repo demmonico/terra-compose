@@ -13,6 +13,7 @@ TerraCompose is a tool aimed to help to run Terraform commands in Docker and pro
 FORMAT: tc <ACTION> <ALIAS> [<OPTIONS|FLAGS>] [-- any args -or --options will be passed as-is]
 
 <ACTION> - TerraCompose action you want to run with your IaaC tool (`Terraform` or `OpenTofu`):
+    - init          - init IaaC tool at the given folder
     - plan          - build IaaC tool plan
     - apply         - apply IaaC tool plan
     - workspaces    - equal to `workspace list`
@@ -517,7 +518,7 @@ init_app
 
 TC_ACTION=$1
 case "${TC_ACTION}" in
-    'plan' | 'apply' | 'workspaces' | 'tf' | 'exec' )
+    'init' | 'plan' | 'apply' | 'workspaces' | 'tf' | 'exec' )
         ;;
     'help')
         echo "${HELP_STRING}"
@@ -578,34 +579,13 @@ init_project
 run_host_hook 'before_all'
 
 case "${TC_ACTION}" in
-    # uses the latest workspace. TODO
-    'tf')
-        echo -e "${YC} >>> Running custom TF command ${RC}${TC_PASS_ARGS}${NC} at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
-        echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
-        ask_for_approve_optional
 
-        run_docker ${TF_TOOL} ${TC_PASS_ARGS}
+    'init')
+        # TF init
+        run_tf_init
+        
         exit;;
 
-    # uses the latest workspace. TODO
-    'exec')
-        if [ -z "${TC_PASS_ARGS}" ]; then
-            echo -e "${YC} >>> Shelling into the runtime container at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
-        else
-            echo -e "${YC} >>> Running custom command ${RC}${TC_PASS_ARGS}${NC} at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
-        fi
-        echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
-        ask_for_approve_optional
-
-        run_docker ${TC_PASS_ARGS}
-        exit;;
-
-    'workspaces')
-        echo -e "${YC} >>> Workspace '${RC}${PROJ_WORKSPACE}${YC}' was found in alias config${NC}"
-        echo -e "${YC} >>> Detecting TF workspaces ... ${NC}"
-        print_workspaces
-        exit;;
-    
     'plan')
         # TF init
         run_tf_init
@@ -660,6 +640,34 @@ case "${TC_ACTION}" in
 
         rm ${TF_PLAN_FILE}
         echo -e "${YC} >>> ${NC}Plan ${YC}${TF_PLAN_FILE}${NC} has been ${RC}removed${NC}\n"
+        exit;;
+
+    # uses the latest workspace. TODO
+    'tf')
+        echo -e "${YC} >>> Running custom TF command ${RC}${TC_PASS_ARGS}${NC} at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
+        echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
+        ask_for_approve_optional
+
+        run_docker ${TF_TOOL} ${TC_PASS_ARGS}
+        exit;;
+
+    # uses the latest workspace. TODO
+    'exec')
+        if [ -z "${TC_PASS_ARGS}" ]; then
+            echo -e "${YC} >>> Shelling into the runtime container at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
+        else
+            echo -e "${YC} >>> Running custom command ${RC}${TC_PASS_ARGS}${NC} at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
+        fi
+        echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
+        ask_for_approve_optional
+
+        run_docker ${TC_PASS_ARGS}
+        exit;;
+
+    'workspaces')
+        echo -e "${YC} >>> Workspace '${RC}${PROJ_WORKSPACE}${YC}' was found in alias config${NC}"
+        echo -e "${YC} >>> Detecting TF workspaces ... ${NC}"
+        print_workspaces
         exit;;
 
     *)
