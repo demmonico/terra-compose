@@ -16,10 +16,10 @@ FORMAT: tc <ACTION> <ALIAS> [<OPTIONS|FLAGS>] [-- any args -or --options will be
     - plan          - build IaaC tool plan
     - apply         - apply IaaC tool plan
     - workspaces    - equal to `workspace list`
-    - run           - proxy all arguments directly to IaaC tool. 
-                      Allows running any custom command
-    - shell         - run a shell inside the container runtime.
-                      Allows running any custom commands inside
+    - tf            - proxy all arguments directly to IaaC tool. 
+                      Allows running any custom IaaC tool command
+    - exec          - execute a shell inside the container runtime.
+                      When passed any params, run them inside. Othervise connects to a shell inside
     - help          - this help information
 <ALIAS>  - a unique shortcut to project/environment pair, like `runner_prod`
 
@@ -508,7 +508,7 @@ init_app
 
 TC_ACTION=$1
 case "${TC_ACTION}" in
-    'plan' | 'apply' | 'workspaces' | 'run' | 'shell' )
+    'plan' | 'apply' | 'workspaces' | 'tf' | 'exec' )
         ;;
     'help')
         echo "${HELP_STRING}"
@@ -561,16 +561,15 @@ done
 init_project
 
 #-----------------------------------------------------------#
-##### Main
+#                          Main                             #
 #-----------------------------------------------------------#
 
 run_host_hook 'before_all'
 
-# TF action
 case "${TC_ACTION}" in
     # uses the latest workspace. TODO
-    'run')
-        echo -e "${YC} >>> Running custom command ${RC}${TC_PASS_ARGS}${NC} at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
+    'tf')
+        echo -e "${YC} >>> Running custom TF command ${RC}${TC_PASS_ARGS}${NC} at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
         ask_for_approve
 
@@ -578,8 +577,12 @@ case "${TC_ACTION}" in
         exit;;
 
     # uses the latest workspace. TODO
-    'shell')
-        echo -e "${YC} >>> Shelling into the runtime container at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
+    'exec')
+        if [ -z "${TC_PASS_ARGS}" ]; then
+            echo -e "${YC} >>> Shelling into the runtime container at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
+        else
+            echo -e "${YC} >>> Running custom command ${RC}${TC_PASS_ARGS}${NC} at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
+        fi
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
         ask_for_approve
 

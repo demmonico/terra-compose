@@ -27,8 +27,6 @@ See [Tested section](#tested) that clarifies which versions of OS / Terraform / 
 Tested on `Monterey`/`Sonoma` + `zsh` + `Docker Desktop`:
 
 ```shell
-
-```shell
 $ wget https://raw.githubusercontent.com/demmonico/terra-compose/master/tc \
   && chmod +x tc \
   && sudo ln -s ${PWD}/tc /usr/local/bin/tc

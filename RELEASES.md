@@ -42,6 +42,7 @@ Config/Customisation:
 Core functionality /Terraform:
 - added an easy way to proxy for destroy and other commands or options. After `--` arg all will be passed to the respective runtime command
 - removed support `plan-debug` and `apply-debug` actions in favour of usage `plan` and `apply` actions with new `-q|--quick` flag
+- renamed `run` -> `tf` and `shell` -> `exec` actions
 
 Config/Customisation:
 - added consuming params from the command arguments - `terraform apply -var current=v2`. It was unlocked by passing all arguments after `--` arg to the respective runtime command
