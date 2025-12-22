@@ -61,11 +61,6 @@ Config/Customisation:
 
 ## Features
 
-### Config and Env vars flexibility
-
-- ADD script that replaces env vars with placeholders inside code (to be used as dynamic module sourcing for example, e.g. `module-prep`)
-- ADD configuring workspace during the call. Maybe withing split alias onto project and env - `./tc run runner_STG destroy -var-file=nonprod.tfvars -target=module.privileged_gitlab_runner_cluster`
-
 ### Actions enhancements
 
 - when run apply after plan (plan file exists), no needs to initialise again (mb consider a lifetime of the generated file as well)
@@ -73,8 +68,7 @@ Config/Customisation:
 ### Debuggin improvements
 
 - improve and standardise output messages
-- ADD option to run `run` (or any??) command without ANY output. It's handy for capture output of some native TF commands, like `state`, `graph` etc
-- ADD tc log
+- ADD option to run `tf`/`exec` (or any??) command without ANY output. It's handy for capture output of some native TF commands, like `state`, `graph` etc
 - implement verbosity cmd flags
 
 ### Misc
