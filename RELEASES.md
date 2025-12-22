@@ -39,6 +39,9 @@ Config/Customisation:
 
 ### v2.0-beta
 
+Bugfixes:
+- fixed `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace. Since it was related to needs run custom commands, sometimes BEFORE workspace creation, default workspace selection was added to both, `tf` (ex. `run`) and `exec` (ex. `shell`) commands. However, using new `--skip-workspace` flag, it's still possible to archieve same goals.
+
 Core functionality /Terraform:
 - added an easy way to proxy for destroy and other commands or options. After `--` arg all will be passed to the respective runtime command
 - removed support `plan-debug` and `apply-debug` actions in favour of usage `plan` and `apply` actions with new `-q|--quick` flag
@@ -53,9 +56,6 @@ Config/Customisation:
 
 
 # TODOs
-
-## Bugfixes
-- FIX `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace
 
 ## Features
 
