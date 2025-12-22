@@ -26,9 +26,9 @@ FORMAT: tc <ACTION> <ALIAS> [<OPTIONS|FLAGS>] [-- any args -or --options will be
 <ALIAS>  - a unique shortcut to project/environment pair, like `runner_prod`
 
 <OPTIONS|FLAGS> - Following are available:
-    -q|--quick        - quick mode flag, skipping init and validation and format checks [actions: plan and run]
-    -a|--auto-approve - auto approve flag, skipping ask for approve for certain actions [actions: exec-tf and exec]
-    --skip-workspace  - flag, skipping workspace selection [actions: exec-tf and exec]
+    -q|--quick         - quick mode flag, skipping init and validation and format checks [actions: plan and run]
+    -a|--auto-approve  - auto approve flag, skipping ask for approve for certain actions [actions: exec-tf and exec]
+    --ignore-workspace - flag, ignoring the workspace (skipping selection) [actions: exec-tf and exec]
 
 EOF
 
@@ -573,7 +573,7 @@ while [[ $# -gt 0 ]]; do
       TC_AUTO_APPROVE='1'
       ;;
 
-    --skip-workspace)   # flag, skipping workspace selection [actions: exec-tf and exec]
+    --ignore-workspace)   # flag, ignoring the workspace (skipping selection) [actions: exec-tf and exec]
       TC_SKIP_WORKSPACE_SELECTION='1'
       ;;
 

@@ -40,7 +40,7 @@ Config/Customisation:
 ### v2.0-beta
 
 Bugfixes:
-- fixed `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace. Since it was related to needs run custom commands, sometimes BEFORE workspace creation, default workspace selection was added to both, `exec-tf` (ex. `run`) and `exec` (ex. `shell`) commands. However, using new `--skip-workspace` flag, it's still possible to archieve same goals.
+- fixed `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace. Since it was related to needs run custom commands, sometimes BEFORE workspace creation, default workspace selection was added to both, `exec-tf` (ex. `run`) and `exec` (ex. `shell`) commands. However, using new `--ignore-workspace` flag, it's still possible to archieve same goal.
 
 Core functionality /Terraform:
 - added an easy way to proxy for destroy and other commands or options. After `--` arg all will be passed to the respective runtime command
