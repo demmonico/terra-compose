@@ -40,12 +40,12 @@ Config/Customisation:
 ### v2.0-beta
 
 Bugfixes:
-- fixed `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace. Since it was related to needs run custom commands, sometimes BEFORE workspace creation, default workspace selection was added to both, `tf` (ex. `run`) and `exec` (ex. `shell`) commands. However, using new `--skip-workspace` flag, it's still possible to archieve same goals.
+- fixed `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace. Since it was related to needs run custom commands, sometimes BEFORE workspace creation, default workspace selection was added to both, `exec-tf` (ex. `run`) and `exec` (ex. `shell`) commands. However, using new `--skip-workspace` flag, it's still possible to archieve same goals.
 
 Core functionality /Terraform:
 - added an easy way to proxy for destroy and other commands or options. After `--` arg all will be passed to the respective runtime command
 - removed support `plan-debug` and `apply-debug` actions in favour of usage `plan` and `apply` actions with new `-q|--quick` flag
-- renamed `run` -> `tf` and `shell` -> `exec` actions
+- renamed `run` -> `exec-tf` and `shell` -> `exec` actions
 - added `-a|--auto-approve` CLI flag, allowing to auto-approve asks in optional places (all except apply)
 - added `init` action, allowing to make a standalone init your IaaC tool at the given folder
 - removed TF init run as a part of the apply action

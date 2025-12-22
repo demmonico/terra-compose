@@ -18,10 +18,10 @@ FORMAT: tc <ACTION> <ALIAS> [<OPTIONS|FLAGS>] [-- any args -or --options will be
     - apply         - apply IaaC tool plan
     - run           - full IaaC flow, including init (skippable), plan and apply run
     - workspaces    - equal to `workspace list`
-    - tf            - proxy all arguments directly to IaaC tool. 
-                      Allows running any custom IaaC tool command
     - exec          - execute a shell inside the container runtime.
                       When passed any params, run them inside. Othervise connects to a shell inside
+    - exec-tf       - proxy all arguments directly to IaaC tool. 
+                      Allows running any custom IaaC tool command
     - help          - this help information
 <ALIAS>  - a unique shortcut to project/environment pair, like `runner_prod`
 
@@ -524,7 +524,7 @@ init_app
 
 TC_ACTION=$1
 case "${TC_ACTION}" in
-    'init' | 'plan' | 'apply' | 'run' | 'workspaces' | 'tf' | 'exec' )
+    'init' | 'plan' | 'apply' | 'run' | 'workspaces' | 'exec' | 'exec-tf' )
         ;;
     'help')
         echo "${HELP_STRING}"
@@ -661,28 +661,17 @@ case "${TC_ACTION}" in
 
         # TF apply
         echo -e "\n------------------------------------------------------------------------\n"
-        echo -e "${YC} >>> Running TF apply in a ${NC}${RC}solo${NC}${YC} mode:${NC} / alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
-        echo -e "${YC} >>> ${NC}Including passed arguments: ${RC}${TC_PASS_ARGS}${NC}"
+        echo -e "${YC} >>> Running TF apply in ${NC}${RC}a full flow${NC}${YC} mode:${NC} / alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
+        [ -n "${TC_PASS_ARGS}" ] && echo -e "${YC} >>> ${NC}Including passed arguments: ${RC}${TC_PASS_ARGS}${NC}"
         echo -e "\n------------------------------------------------------------------------\n"
 
         # TF tfvars
         TFVARS_COMMAND_PARAM="$( prepare_tfvars_params )"
 
-        # apply running in solo (interactive) mode, including vars and passed arguments
+        # apply running in full flow (interactive) mode, including vars and passed arguments
         run_docker ${TF_TOOL} apply ${TFVARS_COMMAND_PARAM} ${TC_PASS_ARGS}
         echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}"
 
-        exit;;
-
-    'tf')
-        echo -e "${YC} >>> Running custom TF command ${RC}${TC_PASS_ARGS}${NC} at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
-        echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
-        ask_for_approve_optional
-
-        # optional TF select workspace
-        skip_workspace_selection || select_workspace
-
-        run_docker ${TF_TOOL} ${TC_PASS_ARGS}
         exit;;
 
     'exec')
@@ -698,6 +687,17 @@ case "${TC_ACTION}" in
         skip_workspace_selection || select_workspace
 
         run_docker ${TC_PASS_ARGS}
+        exit;;
+
+    'exec-tf')
+        echo -e "${YC} >>> Running custom TF command ${RC}${TC_PASS_ARGS}${NC} at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
+        echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
+        ask_for_approve_optional
+
+        # optional TF select workspace
+        skip_workspace_selection || select_workspace
+
+        run_docker ${TF_TOOL} ${TC_PASS_ARGS}
         exit;;
 
     'workspaces')
