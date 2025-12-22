@@ -40,14 +40,14 @@ Config/Customisation:
 ### v2.0-beta
 
 Bugfixes:
-- fixed `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace. Since it was related to needs run custom commands, sometimes BEFORE workspace creation, default workspace selection was added to both, `exec-tf` (ex. `run`) and `exec` (ex. `shell`) commands. However, using new `--ignore-workspace` flag, it's still possible to archieve same goal.
+- fixed `tc run <ALIAS>` executes in last workspace, NOT in <ALIAS> workspace. Since it was related to needs, run custom commands, and sometimes BEFORE workspace creation, the default workspace selection was added to both `exec-tf` (e.g., `run`) and `exec` (e.g., `shell`) commands. However, using the new `--ignore-workspace` flag, it's still possible to achieve the same goal.
 
 Core functionality /Terraform:
-- added an easy way to proxy for destroy and other commands or options. After `--` arg all will be passed to the respective runtime command
+- added an easy way to proxy for destroy and other commands or options. After `--` arg, all will be passed to the respective runtime command
 - removed support `plan-debug` and `apply-debug` actions in favour of usage `plan` and `apply` actions with new `-q|--quick` flag
 - renamed `run` -> `exec-tf` and `shell` -> `exec` actions
 - added a new function to the `-q|--quick` CLI flag, allowing to auto-approve asks in optional places (all except apply)
-- added `init` action, allowing to make a standalone init your IaaC tool at the given folder
+- added `init` action, allowing you to make a standalone init for your IaaC tool in the given folder
 - removed TF init run as a part of the apply action
 - added full IaaC flow run, including init (skippable), plan and apply run
 - added output AWS access check results, outlining what AWS access method will be used
@@ -56,7 +56,7 @@ Config/Customisation:
 - added consuming params from the command arguments - `terraform apply -var current=v2`. It was unlocked by passing all arguments after `--` arg to the respective runtime command
 - added auto-approve system config param complimenting auto-approve function of the `-q|--quick` CLI flag (see above)
 - added lookup logic to fallback to default when alias-specific config was not found
-- performance improvement reading configs, adding config cache, decreasing config files reads. Alias config: `17` -> `1`, system config: `9` -> `1`
+- performance improvement reading configs, adding config cache, decreasing config file reads. Alias config: `17` -> `1`, system config: `9` -> `1`
 
 
 # TODOs
