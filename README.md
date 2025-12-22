@@ -119,7 +119,7 @@ tool:
 ## Aliases Configuration
 
 Each projects, that you want to use `Terra Compose` with, should be presented in `Terra Compose`'s configuration file. 
-Thus, in the root folder of the project, create file `aliases.yaml`. Besides that, environment variable `ALIAS_CONFIG` can be used to override aliases config location.
+Thus, in the root folder of the project, create file `tc.yaml` (name is configurable under system config). Besides that, environment variable `ALIAS_CONFIG` can be used to override aliases config location.
 For details, see next sections 
 
 ### Default settings
@@ -135,8 +135,8 @@ default:                                # [optional section, used as a default a
 
 ### Aliases settings
 
-Aliases are the names, that `Terra Compose` can use to work with particular sub-project / environment. 
-They are configured in the file `aliases.yaml` at the root folder of the project in the following format:
+Aliases are the names, that `Terra Compose` can use to work with particular sub-project / environment. There is a fallback lookup on default section when no alias-specific config was found.
+They are configured in the file `tc.yaml` at the root folder of the project in the following format:
 
 ```yaml
 aliases:

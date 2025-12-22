@@ -92,34 +92,24 @@ init_project() {
     TF_PLAN_FILE="${PROJ_DIR}/${TF_PLAN_FILENAME}"
 
     # TF Tool selection: alias specific -> alias default -> system config -> terraform
-    local tf_default_tool="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'tftool' )"
-    local tf_proj_tool="$( get_config 'tftool' )"
-    TF_TOOL="${tf_proj_tool:-${tf_default_tool}}"
+    TF_TOOL="$( get_config 'tftool' )"
     TF_TOOL="${TF_TOOL:-$( get_sys_config 'terraform' 'tool' 'tftool' )}"
 
-    # alias specific -> alias default -> system config -> hashicorp/terraform
-    local tf_default_image="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'tfimage' )"
-    local tf_proj_image="$( get_config 'tfimage' )"
-    TF_IMAGE="${tf_proj_image:-${tf_default_image}}"
+    # TF image selection: alias specific -> alias default -> system config -> hashicorp/terraform
+    TF_IMAGE="$( get_config 'tfimage' )"
     TF_IMAGE="${TF_IMAGE:-$( get_sys_config 'hashicorp/terraform' 'tool' 'tfimage' )}"
 
-    local tf_default_version="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'tfversion' )"
-    local tf_proj_version="$( get_config 'tfversion' )"
-    TF_VERSION="${tf_proj_version:-${tf_default_version}}"
+    TF_VERSION="$( get_config 'tfversion' )"
 
     ### env vars
 
     # env vars file
-    local default_env_vars_file="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'env_vars_file' )"
-    local proj_env_vars_file="$( get_config 'env_vars_file' )"
-    local env_vars_file="${proj_env_vars_file:-${default_env_vars_file}}"
+    local env_vars_file="$( get_config 'env_vars_file' )"
     if [ -z "${env_vars_file}" ]; then
         echo -e "${YC} >>> Didn't found env file param in config, searching for env filename param...${NC}"
         # env vars filename
-        local default_env_vars_file_name="$( get_yaml_value ${ALIAS_CONFIG} 'default' 'env_vars_file_name' )"
-        local proj_env_vars_file_name="$( get_config 'env_vars_file_name' )"
-        local env_vars_file_name="${proj_env_vars_file_name:-${default_env_vars_file_name:-.env}}"
-        env_vars_file="${BASE_DIR}/${env_vars_file_name}"
+        local env_vars_file_name="$( get_config 'env_vars_file_name' )"
+        env_vars_file="${BASE_DIR}/${env_vars_file_name:-.env}"
     fi
     ENV_VARS_FILE_DOCKER_PARAM=''
     if [ -f "${env_vars_file}" ]; then
@@ -493,11 +483,16 @@ get_config() {
         exit 1
     fi
 
-    local args=$@ result=''
+    local args=$@ result='' alias_result='' default_result=''
+    
     # normal flow, searching for the config
     if [ -n "${args}" ]; then
-        result="$( get_yaml_value ${ALIAS_CONFIG} 'aliases' "${TC_ALIAS}" $@ )"
-    # get all
+        # Lookup: alias specific -> alias default
+        alias_result="$( get_yaml_value ${ALIAS_CONFIG} 'aliases' "${TC_ALIAS}" $@ )"
+        default_result="$( get_yaml_value ${ALIAS_CONFIG} 'default' $@ )"
+        result="${alias_result:-${default_result}}"
+    
+    # get all for help
     else
         result="$( cat ${ALIAS_CONFIG} | grep -v -E "^$|^\s*\#" )"
     fi
