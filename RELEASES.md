@@ -48,6 +48,7 @@ Core functionality /Terraform:
 - renamed `run` -> `tf` and `shell` -> `exec` actions
 - added `-a|--auto-approve` CLI flag, allowing to auto-approve asks in optional places (all except apply)
 - added `init` action, allowing to make a standalone init your IaaC tool at the given folder
+- added solo apply (interactive) mode, ignoring pre-generated plan (`--solo-apply` CLI option)
 
 Config/Customisation:
 - added consuming params from the command arguments - `terraform apply -var current=v2`. It was unlocked by passing all arguments after `--` arg to the respective runtime command
@@ -67,11 +68,15 @@ Config/Customisation:
 
 ### Actions enhancements
 
-- ADD applying not based on prepared plan, but on-the-fly as well
 - when run apply after plan (plan file exists), no needs to initialise again (mb consider a lifetime of the generated file as well)
 
 ### Debuggin improvements
 
+- improve and standardise output messages
 - ADD option to run `run` (or any??) command without ANY output. It's handy for capture output of some native TF commands, like `state`, `graph` etc
 - ADD tc log
 - implement verbosity cmd flags
+
+### Misc
+
+- self-update
