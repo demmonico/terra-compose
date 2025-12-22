@@ -50,6 +50,7 @@ Core functionality /Terraform:
 - added `init` action, allowing to make a standalone init your IaaC tool at the given folder
 - removed TF init run as a part of the apply action
 - added full IaaC flow run, including init (skippable), plan and apply run
+- added output AWS access check results, outlining what AWS access method will be used
 
 Config/Customisation:
 - added consuming params from the command arguments - `terraform apply -var current=v2`. It was unlocked by passing all arguments after `--` arg to the respective runtime command
