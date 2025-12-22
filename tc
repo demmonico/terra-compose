@@ -44,8 +44,24 @@ _DIR="$(pwd)"
 BASE_DIR="${_DIR}"
 
 init_app() {
-    ALIAS_CONFIG="${ALIAS_CONFIG:-$( get_sys_config "${BASE_DIR}/tc.yaml" 'config' 'file' )}"
-    HELP_STRING="${HELP_STRING}$( echo -e "\n\nList of available aliases from ${YC}${ALIAS_CONFIG}${NC}:\n>>>>>"; get_config; echo "<<<<<" )"
+    # system config
+    local sys_config="${SYSTEM_CONFIG:-$HOME/.tc.yaml}"
+    _SYSCONFIG_CACHE=
+    if [ -f "${sys_config}" ]; then
+        _SYSCONFIG_CACHE="$( cat ${sys_config} | grep -v -E "^$|^\s*\#"  )"
+    fi
+
+    # alias config
+    local alias_config="${alias_config:-$( get_sys_config "${BASE_DIR}/tc.yaml" 'config' 'file' )}"
+    if [ ! -f "${alias_config}" ]; then
+        echo -e "${RC}Error${NC}: No config were found! (path='${alias_config}')" >&2
+        exit 1
+    fi
+    echo -e "${YC}Warming up the config cache...${NC}"
+    _CONFIG_CACHE="$( cat ${alias_config} | grep -v -E "^$|^\s*\#"  )"
+
+    # app params
+    HELP_STRING="${HELP_STRING}$( echo -e "\n\nList of available aliases from ${YC}${alias_config}${NC}:\n>>>>>"; echo "${_CONFIG_CACHE}"; echo "<<<<<" )"
 
     VERBOSITY_DEBUG_MODE=0
     VERBOSITY_INFO_MODE=1
@@ -363,15 +379,15 @@ get_human_time_since_file_modified() {
 
 # See @package: https://github.com/demmonico/bash-parse-yaml
 # get config value from yaml config
-# format: get_yaml_value YAML_FILE_NAME parent1 patent2 ... config_key_name
+# format: get_yaml_value YAML_STRING parent1 patent2 ... config_key_name
 get_yaml_value() {
   if [ "$#" -lt 2 ]; then
     echo -e "${RC}Error:${NC} too few arguments at '${YC}get_yaml_value${NC}'"
     exit 1
   fi
 
-  # Starting from Terra Compose v1.4 internally "&" used as a config levels separator
-  local separator='&' prefix='' ALIAS_CONFIG=$1
+  # Starting from Terra Compose v2.0-alpha internally "&" used as a config levels separator
+  local separator='&' prefix='' yaml_str=$1
 
   local config_path="${prefix}"
   for i in "${@:2}"; do
@@ -381,9 +397,9 @@ get_yaml_value() {
   local k='[a-zA-Z0-9_]' # key name pattern
   local s='[[:space:]]*' fs=$(echo @|tr @ '\034')
   # normalise config. It's a shorter version from https://stackoverflow.com/a/21189044
-  sed -ne "s|^\($s\):|\1|" \
+  echo "${yaml_str}" | sed -ne "s|^\($s\):|\1|" \
       -e "s|^\($s\)\($k*\)$s:$s[\"']\(.*\)[\"']$s\$|\1$fs\2$fs\3|p" \
-      -e "s|^\($s\)\($k*\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" $1 |
+      -e "s|^\($s\)\($k*\)$s:$s\(.*\)$s\$|\1$fs\2$fs\3|p" |
   # compose list of variables like parent1_parent2_target="target value" ("_" is a separator local variable)
   awk -F$fs '{
       indent = length($1)/2;
@@ -478,35 +494,19 @@ get_yaml_value() {
 }
 
 get_config() {
-    if [ ! -f "${ALIAS_CONFIG}" ]; then
-        echo -e "${RC}Error${NC}: No config files were found! ALIAS_CONFIG='${ALIAS_CONFIG}'" >&2
-        exit 1
-    fi
-
     local args=$@ result='' alias_result='' default_result=''
     
-    # normal flow, searching for the config
-    if [ -n "${args}" ]; then
-        # Lookup: alias specific -> alias default
-        alias_result="$( get_yaml_value ${ALIAS_CONFIG} 'aliases' "${TC_ALIAS}" $@ )"
-        default_result="$( get_yaml_value ${ALIAS_CONFIG} 'default' $@ )"
-        result="${alias_result:-${default_result}}"
-    
-    # get all for help
-    else
-        result="$( cat ${ALIAS_CONFIG} | grep -v -E "^$|^\s*\#" )"
-    fi
-    
-    echo "${result}"
+    # Lookup: alias specific -> alias default
+    alias_result="$( get_yaml_value "${_CONFIG_CACHE}" 'aliases' "${TC_ALIAS}" $@ )"
+    default_result="$( get_yaml_value "${_CONFIG_CACHE}" 'default' $@ )"
+    echo "${alias_result:-${default_result}}"
 }
 
 get_sys_config() {
-    local default=$1
-    local config="${SYSTEM_CONFIG:-$HOME/.tc.yaml}"
-    local args=${@:2}
-    local result=''
-    if [ -f "${config}" ]; then
-        result="$( get_yaml_value ${config} $args )"
+    local default=$1 args=${@:2} result=''
+
+    if [ -n "${_SYSCONFIG_CACHE}" ]; then
+        result="$( get_yaml_value "${_SYSCONFIG_CACHE}" $args )"
     fi
     if [ -z "${result}" ] && [ -n "${default}" ]; then
         result="${default}"

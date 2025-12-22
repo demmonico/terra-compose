@@ -53,7 +53,7 @@ Config/Customisation:
 - added consuming params from the command arguments - `terraform apply -var current=v2`. It was unlocked by passing all arguments after `--` arg to the respective runtime command
 - added auto-approve system config param complimenting `-a|--auto-approve` CLI flag (see above)
 - added lookup logic to fallback to default when alias-specific config was not found
-
+- performance improvement reading configs, adding config cache, decreasing config files reads. Alias config: `17` -> `1`, system config: `9` -> `1`
 
 
 # TODOs
@@ -63,7 +63,6 @@ Config/Customisation:
 ### Config and Env vars flexibility
 
 - ADD script that replaces env vars with placeholders inside code (to be used as dynamic module sourcing for example, e.g. `module-prep`)
-
 - ADD configuring workspace during the call. Maybe withing split alias onto project and env - `./tc run runner_STG destroy -var-file=nonprod.tfvars -target=module.privileged_gitlab_runner_cluster`
 
 ### Actions enhancements
