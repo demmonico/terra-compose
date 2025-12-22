@@ -16,6 +16,7 @@ FORMAT: tc <ACTION> <ALIAS> [<OPTIONS|FLAGS>] [-- any args -or --options will be
     - init          - init IaaC tool at the given folder
     - plan          - build IaaC tool plan
     - apply         - apply IaaC tool plan
+    - run           - full IaaC flow, including init (skippable), plan and apply run
     - workspaces    - equal to `workspace list`
     - tf            - proxy all arguments directly to IaaC tool. 
                       Allows running any custom IaaC tool command
@@ -27,7 +28,6 @@ FORMAT: tc <ACTION> <ALIAS> [<OPTIONS|FLAGS>] [-- any args -or --options will be
 <OPTIONS|FLAGS> - Following are available:
     -q|--quick        - quick mode flag, skipping init and validation and format checks [actions: plan and apply]
     -a|--auto-approve - auto approve flag, skipping ask for approve for certain actions [actions: tf and exec]
-    --solo-apply      - run apply action in a solo mode, without pre-generated plan [actions: apply]
     --skip-workspace  - flag, skipping workspace selection [actions: tf and exec]
 
 EOF
@@ -75,7 +75,6 @@ init_app() {
     # CLI params defaults
     TC_QUICK_MODE='0'
     TC_AUTO_APPROVE="$( get_sys_config '0' 'app' 'auto_approve_optional' )"
-    TC_SOLO_APPLY='0'
     TC_SKIP_WORKSPACE_SELECTION='0'
     TC_PASS_ARGS=
 }
@@ -352,10 +351,6 @@ is_quick_mode() {
     (( "${TC_QUICK_MODE}" ))
 }
 
-is_solo_apply() {
-    (( "${TC_SOLO_APPLY}" ))
-}
-
 skip_workspace_selection() {
     (( "${TC_SKIP_WORKSPACE_SELECTION}" )) && {
         echo -e "${YC} >>> ${RC}WARNING!!! ${YC} Skipping workspace selection at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
@@ -529,7 +524,7 @@ init_app
 
 TC_ACTION=$1
 case "${TC_ACTION}" in
-    'init' | 'plan' | 'apply' | 'workspaces' | 'tf' | 'exec' )
+    'init' | 'plan' | 'apply' | 'run' | 'workspaces' | 'tf' | 'exec' )
         ;;
     'help')
         echo "${HELP_STRING}"
@@ -569,10 +564,6 @@ while [[ $# -gt 0 ]]; do
 
     -a|--auto-approve)  # auto approve flag, skipping ask for approve for certain actions [actions: tf and exec]
       TC_AUTO_APPROVE='1'
-      ;;
-
-    --solo-apply)       # run apply action in a solo mode, without pre-generated plan [actions: apply]
-      TC_SOLO_APPLY='1'
       ;;
 
     --skip-workspace)   # flag, skipping workspace selection [actions: tf and exec]
@@ -630,53 +621,56 @@ case "${TC_ACTION}" in
         echo -e "\n${YC} >>> TF plan:${NC} alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}: was generated plan ${RC}${TF_PLAN_FILENAME}${NC}\n${YC} >>> ${NC}(${TF_PLAN_FILE})\n"
         exit;;
 
+    # normal TF apply flow with pre-generated TF plan
     'apply')
-        # TF init
-        run_tf_init
-        
+        # check TF plan
+        if [ ! -f "${TF_PLAN_FILE}" ]; then
+            echo -e "${RC}Error${NC}: TF plan file ${YC}${TF_PLAN_FILE}${NC} does not exists. \nPlease build TF plan first"
+            exit 10
+        fi
+
         # TF select workspace
         select_workspace
 
-        # normal TF apply flow with pre-generated TF plan
-        if ! is_solo_apply; then
-            # check TF plan
-            if [ ! -f "${TF_PLAN_FILE}" ]; then
-                echo -e "${RC}Error${NC}: TF plan file ${YC}${TF_PLAN_FILE}${NC} does not exists. \nPlease build TF plan first"
-                exit 10
-            fi
+        # TF apply
+        echo -e "\n------------------------------------------------------------------------\n"
+        echo -e "${YC} >>> Applying TF plan:${NC} ${RC}${TF_PLAN_FILENAME}${NC} / alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
+        echo -e "${YC} >>> ${NC}File ${YC}${TF_PLAN_FILE}${NC} was modified ${YC}$( get_human_time_since_file_modified "${TF_PLAN_FILE}" ) ago${NC}"
+        echo -e "\n------------------------------------------------------------------------\n"
+        
+        echo -e "This action is going to run ${YC}${TF_TOOL} apply${NC} at the ${YC}${CURRENT_WORKSPACE}${NC} workspace"
+        ask_for_approve
 
-            # TF apply
-            echo -e "\n------------------------------------------------------------------------\n"
-            echo -e "${YC} >>> Applying TF plan:${NC} ${RC}${TF_PLAN_FILENAME}${NC} / alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
-            echo -e "${YC} >>> ${NC}File ${YC}${TF_PLAN_FILE}${NC} was modified ${YC}$( get_human_time_since_file_modified "${TF_PLAN_FILE}" ) ago${NC}"
-            echo -e "\n------------------------------------------------------------------------\n"
-            
-            echo -e "This action is going to run ${YC}${TF_TOOL} apply${NC} at the ${YC}${CURRENT_WORKSPACE}${NC} workspace"
-            ask_for_approve
+        # apply ONLY with the pre-generated plan
+        run_docker ${TF_TOOL} apply ${TF_PLAN_FILENAME}
+        echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"
 
-            # apply ONLY with the pre-generated plan
-            run_docker ${TF_TOOL} apply ${TF_PLAN_FILENAME}
-            echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}: applied plan ${RC}${TF_PLAN_FILENAME}${NC}"
+        # clean-up
+        rm ${TF_PLAN_FILE}
+        echo -e "${YC} >>> ${NC}Plan ${YC}${TF_PLAN_FILE}${NC} has been ${RC}removed${NC}\n"
 
-            # clean-up
-            rm ${TF_PLAN_FILE}
-            echo -e "${YC} >>> ${NC}Plan ${YC}${TF_PLAN_FILE}${NC} has been ${RC}removed${NC}\n"
+        exit;;
 
-        # solo TF apply flow, ignoring pre-generated TF plan
-        else
-            # TF apply
-            echo -e "\n------------------------------------------------------------------------\n"
-            echo -e "${YC} >>> Running TF apply in a ${NC}${RC}solo${NC}${YC} mode:${NC} / alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
-            echo -e "${YC} >>> ${NC}Including passed arguments: ${RC}${TC_PASS_ARGS}${NC}"
-            echo -e "\n------------------------------------------------------------------------\n"
+    # full TF flow, including init (skippable), plan and apply run
+    'run')
+        # TF init
+        run_tf_init
+    
+        # TF select workspace
+        select_workspace
 
-            # TF tfvars
-            TFVARS_COMMAND_PARAM="$( prepare_tfvars_params )"
+        # TF apply
+        echo -e "\n------------------------------------------------------------------------\n"
+        echo -e "${YC} >>> Running TF apply in a ${NC}${RC}solo${NC}${YC} mode:${NC} / alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC}"
+        echo -e "${YC} >>> ${NC}Including passed arguments: ${RC}${TC_PASS_ARGS}${NC}"
+        echo -e "\n------------------------------------------------------------------------\n"
 
-            # apply running in solo (interactive) mode, including vars and passed arguments
-            run_docker ${TF_TOOL} apply ${TFVARS_COMMAND_PARAM} ${TC_PASS_ARGS}
-            echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}"
-        fi
+        # TF tfvars
+        TFVARS_COMMAND_PARAM="$( prepare_tfvars_params )"
+
+        # apply running in solo (interactive) mode, including vars and passed arguments
+        run_docker ${TF_TOOL} apply ${TFVARS_COMMAND_PARAM} ${TC_PASS_ARGS}
+        echo -e "\n${YC} >>> TF apply:${NC} alias ${YC}${TC_ALIAS}${NC} / workspace ${RC}${CURRENT_WORKSPACE}${NC} / tfvars ${RC}${TFVARS_COMMAND_PARAM}${NC}"
 
         exit;;
 
