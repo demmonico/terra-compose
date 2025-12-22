@@ -75,7 +75,7 @@ init_app() {
     # CLI params defaults
     TC_QUICK_MODE='0'
     TC_AUTO_APPROVE="$( get_sys_config '0' 'app' 'auto_approve_optional' )"
-    TC_SKIP_WORKSPACE_SELECTION='0'
+    TC_IGNORE_WORKSPACE_SELECTION='0'
     TC_PASS_ARGS=
 }
 
@@ -359,7 +359,7 @@ is_quick_mode() {
 }
 
 skip_workspace_selection() {
-    (( "${TC_SKIP_WORKSPACE_SELECTION}" )) && {
+    (( "${TC_IGNORE_WORKSPACE_SELECTION}" )) && {
         echo -e "${YC} >>> ${RC}WARNING!!! ${YC} Skipping workspace selection at the alias ${YC}${TC_ALIAS} (${PROJ_DIR})${NC}."
         echo -e "${YC} >>> ${RC}Please, be carefull!!!${NC}"
     }
@@ -574,7 +574,7 @@ while [[ $# -gt 0 ]]; do
       ;;
 
     --ignore-workspace)   # flag, ignoring the workspace (skipping selection) [actions: exec-tf and exec]
-      TC_SKIP_WORKSPACE_SELECTION='1'
+      TC_IGNORE_WORKSPACE_SELECTION='1'
       ;;
 
     *)
