@@ -16,7 +16,7 @@ FORMAT: tc <ACTION> <ALIAS> [<OPTIONS|FLAGS>] [-- any args -or --options will be
     - init          - init IaaC tool at the given folder
     - plan          - build IaaC tool plan
     - apply         - apply IaaC tool plan
-    - run           - full IaaC flow, including init (skippable), plan and apply run
+    - run           - full IaaC flow, including init and checks (both skippable), plan and apply run
     - workspaces    - equal to `workspace list`
     - exec          - execute a shell inside the container runtime.
                       When passed any params, run them inside. Othervise connects to a shell inside
@@ -658,6 +658,13 @@ case "${TC_ACTION}" in
     
         # TF select workspace
         select_workspace
+
+        # TF validation
+        if ! is_quick_mode; then
+            echo -e "${YC} >>> Checking format and validating TF templates ... ${NC}"
+            run_docker ${TF_TOOL} fmt --check=true -recursive -diff
+            run_docker ${TF_TOOL} validate
+        fi
 
         # TF apply
         echo -e "\n------------------------------------------------------------------------\n"
