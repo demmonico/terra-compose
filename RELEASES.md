@@ -58,6 +58,12 @@ Config/Customisation:
 - added lookup logic to fallback to default when alias-specific config was not found
 - performance improvement reading configs, adding config cache, decreasing config file reads. Alias config: `17` -> `1`, system config: `9` -> `1`
 
+### v2.0-rc1
+
+Config/Customisation:
+- added automatic removal the `.terraform/terraform.tfstate` file during the init action when the backend config is not empty. It prevents `Backend configuration changed` error
+- added to the system config `backends_dir` and `vars_dir` params, configuring default subpath for the backends and vars files to look up
+
 
 # TODOs
 

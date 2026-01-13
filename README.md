@@ -95,6 +95,8 @@ It works as a meta-config for some of the config values. At the moment supported
 - alias config location (`config -> file`)
 - skip value (`config -> skip_value`)
 - override file suffix (`config -> override_file_suffix`)
+- vars dir name (`config -> vars_dir`)
+- backends dir name (`config -> backends_dir`)
 - IaaC tool name (`tool -> tftool`)
 - IaaC tool image (`tool -> tfimage`)
 

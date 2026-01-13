@@ -217,16 +217,27 @@ run_tf_init() {
     run_host_hook 'before_tf_init'
 
     local backend_config="$( get_config 'backend_config' )"
-    local result='' override_file=''
+    local result='' override_file='' file_subpath=''
     if [ -n "${backend_config}" ]; then
+        local backend_dir="$( get_sys_config 'backends' 'config' 'backends_dir' | sed 's/^\/\+//g' | sed 's/\/$//g' )"
         for file in ${backend_config[@]}; do
-            result="${result} -backend-config=${file}"
+            if ! file_subpath="$( normalize_proj_file_subpath "${file}" "${backend_dir}" )"; then
+                echo -e "${RC}Error${NC}: project file '${YC}${file}${NC}' was not found neither in the project dir '${YC}${PROJ_DIR}${NC}' or it's subdir '${YC}${PROJ_DIR}/${backend_dir}${NC}'" >&2
+                exit 3
+            fi
+            result="${result} -backend-config=${file_subpath}"
             # lookup for an override files, adding it when exists
-            override_file="$( get_override_file "${file}" )"
-            [[ -f "${PROJ_DIR}/${override_file}" ]] && result="${result} -backend-config=${override_file}"
+            override_file_subpath="$( get_override_file "${file_subpath}" )"
+            [[ -f "${PROJ_DIR}/${override_file_subpath}" ]] && result="${result} -backend-config=${override_file_subpath}"
         done
     fi
     local backend_config_param="${result}"
+
+    # when we have customised backend config, we need to clean-up .terraform folder to avoid conflicts every time we run init
+    if [ -n "${backend_config_param}" ] && [ -d "${PROJ_DIR}/.terraform" ] && [ -f "${PROJ_DIR}/.terraform/terraform.tfstate" ]; then
+        echo -e "${YC} >>> Removing existing${NC} ${RC}.terraform/terraform.tfstate${NC} ${YC}file to avoid backend config conflicts...${NC}"
+        rm -f "${PROJ_DIR}/.terraform/terraform.tfstate"
+    fi
     
     cd "${PROJ_DIR}" && \
         echo -e "Project dir is ${YC}${PROJ_DIR}${NC} and we are currently right here!" && echo "" && \
@@ -283,22 +294,20 @@ select_workspace() {
 }
 
 prepare_tfvars_params() {
-    function normalize_filename() {
-        local filename=$1
-        if [[ "${filename}" = *.tfvars ]] || [[ "${filename}" = *.tfvars.json ]] || [[ "${filename}" = *.tfvars.hcl ]]; then
-            echo "${filename}"
-        else
-            echo "${filename}.tfvars"
+    function normalize_filepath() {
+        local filename=$1 file_subpath=''
+        if [[ "${filename}" != *.tfvars ]] && [[ "${filename}" != *.tfvars.json ]] && [[ "${filename}" != *.tfvars.hcl ]]; then
+            filename="${filename}.tfvars"
         fi
+        local vars_dir="$( get_sys_config 'vars' 'config' 'vars_dir' | sed 's/^\/\+//g' | sed 's/\/$//g' )"
+        echo "$( normalize_proj_file_subpath "${filename}" "${vars_dir}" )"
     }
     function ask_when_no_tfvars_file() {
-        local filename="$( normalize_filename "$1" )"
-        local file="${PROJ_DIR}/${filename}"
-
-        if [ -f "${file}" ]; then
-            echo "${filename}"
+        local file="$( normalize_filepath "$1" )"
+        if [ -n "${file}" ]; then
+            echo "${file}"
         else
-            echo -e "Oops, file ${RC}${filename}${NC} was not found at ${YC}${PROJ_DIR}${NC} folder!" >&2
+            echo -e "Oops, file ${RC}${file}${NC} was not found at ${YC}${PROJ_DIR}${NC} folder!" >&2
             echo -e "There are ${YC}*.tfvars${NC} files:" >&2
             eval "ls ${PROJ_DIR} | grep --color '.tfvars'" >&2
 
@@ -315,6 +324,9 @@ prepare_tfvars_params() {
         echo -e "${YC} >>> No TFVARS files was found at the config, so will try current workspace '${RC}${CURRENT_WORKSPACE}${YC}' as a TFVARS filename${NC}" >&2
         file="$( ask_when_no_tfvars_file "${CURRENT_WORKSPACE}" )"
         result="-var-file=${file}"
+        # lookup for an override files, adding it when exists
+        override_file="$( get_override_file "${file}" )"
+        [[ -f "${PROJ_DIR}/${override_file}" ]] && result="${result} -var-file=${override_file}"
     
     # pre-configured to skip tfvars
     elif [ "${PROJ_TFVAR}" = "${_SKIP_VALUE}" ]; then
@@ -325,7 +337,11 @@ prepare_tfvars_params() {
     else
         echo -e "${YC} >>> TFVARS file(s) '${RC}$( echo ${PROJ_TFVAR[@]} | tr ' ' ', ' )${YC}' found in alias config${NC}" >&2
         for i in ${PROJ_TFVAR[@]}; do
-            file="$( normalize_filename ${i} )"
+            file="$( normalize_filepath ${i} )"
+            if [ -z "${file}" ]; then
+                echo -e "${RC}Error${NC}: vars file '${YC}${i}${NC}' was not found neither in the project dir '${YC}${PROJ_DIR}${NC}' or it's vars subdir" >&2
+                exit 3
+            fi
             result="${result} -var-file=${file}"
             # lookup for an override files, adding it when exists
             override_file="$( get_override_file "${file}" )"
@@ -370,6 +386,17 @@ get_override_file() {
     local file="$1"
     local suffix="$( get_sys_config '.override' 'config' 'override_file_suffix' )"
     echo "${file}" | sed -E "s/^(.*)(\.[[:alnum:]]+)$/\1${suffix}\2/g"
+}
+
+normalize_proj_file_subpath() {
+    local filename="$1" subpath="$2"
+    if [ -f "${PROJ_DIR}/${subpath}/${filename}" ]; then
+        echo "${subpath}/${filename}"
+    elif [ -f "${PROJ_DIR}/${filename}" ]; then
+        echo "${filename}"
+    else
+        return 1
+    fi
 }
 
 get_human_time_since_file_modified() {
